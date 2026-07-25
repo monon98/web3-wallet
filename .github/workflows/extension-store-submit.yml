@@ -1,0 +1,38 @@
+# 浏览器扩展上架（Plasmo BPP）；需在仓库 Settings → Secrets 配置 SUBMIT_KEYS
+name: Submit extension to Web Store
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared (workspace dependency)
+        run: pnpm --filter @plugin/shared build
+
+      - name: Build the extension
+        run: pnpm --filter web3-wallet build
+
+      - name: Package the extension into a zip artifact
+        run: pnpm --filter web3-wallet package
+
+      - name: Browser Platform Publish
+        uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.SUBMIT_KEYS }}
+          artifact: apps/extension/build/chrome-mv3-prod.zip

@@ -1,0 +1,101 @@
+# 子项目：浏览器扩展（`apps/extension`）
+
+- **包名（pnpm filter）**：`web3-wallet`（与磁盘路径 `apps/extension` 不同，属历史命名）。
+- **本地类型**：`src/extension/types/*.ts`，聚合出口 **`src/extension/types/index.ts`**（`export type * from './…'`）；引用 **`~/types`**（见 `tsconfig.json` 的 `paths`）。**无依赖数值常量**（如批量上限）见 **`extension/constants/`**，引用 **`~/constants`**。
+- **栈**：Plasmo MV3、React 19、UnoCSS、viem、bip39（详见 [TECHNICAL-SOLUTION.md §4.1](./TECHNICAL-SOLUTION.md)）。
+- **面板与 hooks 源文件命名（钱包）**：`src/extension/ui/panels/wallet/**`、`src/extension/hooks/**` 下 `*.ts(x)` 使用 **camelCase**（小驼峰），如 `walletPanelRoot.tsx`、`useWalletPanel.ts`；聚合出口 `index.ts` 除外。由 `eslint.config.mjs` 中 `unicorn/filename-case`（`camelCase`）约束；Plasmo 入口（如 `sidepanel.tsx`、`popup.tsx`、`background.ts`）保持框架约定文件名。
+- **Cursor 范围规则**：`.cursor/rules/web3-wallet-extension.mdc`（`globs: apps/extension/**/*`）。
+- **当前实现线索**：`src/background.ts`（侧载 `extension/background/serviceWorker.ts`）、`src/contents/`（见下文「内容脚本与 DApp 桥接」）、`src/extension/utils/`（bridge / vault / wallet-ui 等）、`src/extension/ui/`（面板等扩展专有 UI）、`src/extension/hooks/`；**类型**仅从 **`~/types`** 聚合；与 Web 共用的表单/按钮等见 [**@plugin/ui**](./ui.md)。现状摘要见技术方案 **§4.1「当前代码基线」** 与 **§10**。Plasmo / Parcel 构建踩坑见 [runbook · extension-mv3.md](../runbook/extension-mv3.md)。
+- **开发态调试日志**：[`src/extension/utils/extensionLog.ts`](../../apps/extension/src/extension/utils/extensionLog.ts)；**按控制台上下文分组的前缀索引表**见 [TECHNICAL-SOLUTION.md](./TECHNICAL-SOLUTION.md) **§4.1** 小节「开发态可观测性（扩展日志索引）」。`NODE_ENV !== 'production'` 时在 **Service Worker** 控制台输出 `bridge_*` / `bridge_handler_reject` / `site_connect_blocked` / `personal_sign_blocked` / `typed_data_sign_blocked` / `runtime_*`（如 `runtime_approve_site_connect`）/ `sw_lifecycle` / `tab_sessions_revoked` / `side_panel_open` / `side_panel_open_failed` / `approval_popup_create_failed` / `connect_approval_address` / `readonly_rpc_error` / `site_session` / `wallet_chain_set` / `vault_bundle_coerce` / `resolve_*` / `reject_*` / `*_deferred` / `approval_popup_*` 等；隔离脚本 [`allUrls.ts`](../../apps/extension/src/contents/allUrls.ts) 输出 `cs_bridge_*`；MAIN 世界 [`inpageEvm.ts`](../../apps/extension/src/contents/inpageEvm.ts) 输出 `inpage_bridge_*`（均在**页面开发者工具**中选对应扩展帧 / 上下文查看；侧栏与弹窗 UI 另有 `panel_*`、`panel_action`、`wallet_ui_pruned`（读状态时修剪会话）；**独立审批窗口**（`site-connect` / `sign-personal` / `sign-typed-data`）另有 `tab_*`）。**不得**记录口令、助记词、私钥与待签原文（与 [web3-security](../../.cursor/rules/web3-security.mdc) 一致）。生产构建默认静默。
+
+## 源码目录（`src/`）
+
+| 路径                                                                                           | 内容                                                                                                                              |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `background.ts`、`popup.tsx`、`sidepanel.tsx`、`contents/`、`tabs/`、`devtools.tsx`、`assets/` | Plasmo 约定的入口与页面资源，**保持在 `src/` 根下**（全局样式等：`import '~/assets/style.css'`）                                  |
+| [`extension/hooks/`](../../apps/extension/src/extension/hooks/)                                | 钱包 React hooks（`~/hooks/*`）                                                                                                   |
+| [`extension/ui/`](../../apps/extension/src/extension/ui/)                                      | 扩展专有 React UI（`~/components/*`）                                                                                             |
+| [`extension/types/`](../../apps/extension/src/extension/types/)                                | 本地类型（`~/types`）；**Vault 形状**（含 EVM + TVM）集中在 [`vault.ts`](../../apps/extension/src/extension/types/vault.ts)       |
+| [`extension/constants/`](../../apps/extension/src/extension/constants/)                        | 无 `import` 的共享数值常量（`~/constants`，如 [`walletLimits.ts`](../../apps/extension/src/extension/constants/walletLimits.ts)） |
+| [`extension/utils/`](../../apps/extension/src/extension/utils/)                                | bridge、**vault**（加密账户包与签名）、`walletUi`、extension 壳层、`extensionLog`（`~lib/*`）                                     |
+| [`extension/web3/`](../../apps/extension/src/extension/web3/)                                  | 链上工具：`hd`、`evm`/`tvm`/`btc` 批量地址、bip39 演示（`~web3`）                                                                 |
+| [`extension/background/`](../../apps/extension/src/extension/background/)                      | Service Worker 实现体（由根目录 `background.ts` 侧载）                                                                            |
+
+### `vault` 与 `web3` 目录边界（扩展内）
+
+| 目录                                               | 放什么                                                                                                                         | 典型模块                                                                |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| **`src/extension/utils/vault/`**（`~lib/vault/*`） | **本地钱包信任域**：加密存储、解密签名、账户包读写；**不**放「纯链上派生 / 批量生成地址」实现。                                | `record`、`tvmRecord`、`crypto`、`signing`                              |
+| **`src/extension/web3/`**（`~web3`、`~web3/...`）  | **链上与密码学工具**：EVM HD 路径与地址派生、TVM/BTC 批量地址、`viem`/`bitcoinjs-lib` 等；**不**写 `chrome.storage` 账户密文。 | `base/hd/derive`、`evm/addressGenerator`、`tvm/tvmAddressGenerator`、`btc/*` |
+
+**新增代码时**：侧栏导入校验、标签页多链生成、批量路径展开等 → 扩展现有 **`web3`** 子路径或在其旁新增文件；**不要**再向 `vault` 增加地址生成器类模块。需要落盘或解密时，在 **`vault`** 调用 **`web3`** 的纯函数完成派生后再加密写入。
+
+---
+
+## 内容脚本与 DApp 桥接（对照仓库实现）
+
+Plasmo 约定见官方文档：[Content Scripts · Injecting into the main world](https://docs.plasmo.com/framework/content-scripts#injecting-into-the-main-world)（`world: "MAIN"`）、以及同页的 [Importing resources · `url:`](https://docs.plasmo.com/framework/content-scripts#importing-resources)（示例为打包后的 **`.js`** 资源 URL）。
+
+### 两个内容脚本、两个 JavaScript 世界
+
+| 文件                                                                          | 执行世界             | `PlasmoCSConfig`（与代码一致）                                                                                                                                                                                                              | 职责                                                                                                                                                                          |
+| ----------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/contents/allUrls.ts`](../../apps/extension/src/contents/allUrls.ts)     | **隔离世界**（默认） | `matches` 与 [`contentScriptWhitelist.ts`](../../apps/extension/src/extension/utils/extension/contentScriptWhitelist.ts) 中 **`CONTENT_SCRIPT_MATCH_PATTERNS`** 一致（**非** `<all_urls>`），`run_at: 'document_start'`，`all_frames: true` | 监听页面 **`window.postMessage`**（来源为同源 `window`）；校验 `source` 后与 **background** 通过 `chrome.runtime.sendMessage` 转发桥接请求；把结果 **`postMessage` 回页面**。 |
+| [`src/contents/inpageEvm.ts`](../../apps/extension/src/contents/inpageEvm.ts) | **主世界（MAIN）**   | 同上，并 **`world: 'MAIN'`**                                                                                                                                                                                                                | 在页面真实上下文中暴露 **EIP-1193** provider（如 `window.ethereum`）、**EIP-6963** 宣告；通过 **`postMessage`** 向隔离世界脚本发起 `bridge-request`。                         |
+
+两者均在 `document_start`、且 `all_frames: true`，与多 iframe 页面上的 DApp 行为一致。
+
+**注入白名单**：`CONTENT_SCRIPT_MATCH_PATTERNS` 默认覆盖 **localhost / 127.0.0.1** 及常见本地开发端口；**`package.json` → `manifest.web_accessible_resources[0].matches`** 须与之一致（Chrome manifest 无法从 TS 引用）。对接公网 DApp 时，在 `contentScriptWhitelist.ts` 中追加对应 `https://…/*` 或 `https://*.…/*` 模式，并同步 **`web_accessible_resources`**（必要时同步 **`host_permissions`** 中面向该站点的条目）。
+
+### 消息常量与信任边界（与 `~lib/bridge/constants` 一致）
+
+实现见 [`src/extension/utils/bridge/constants.ts`](../../apps/extension/src/extension/utils/bridge/constants.ts)：
+
+- **`WEB3_WALLET_POSTMESSAGE_INPAGE_SOURCE` / `WEB3_WALLET_POSTMESSAGE_CONTENT_SOURCE`**：`postMessage` 信封上的 `source` 字段，inpage 与隔离脚本彼此识别，**须与页面/扩展内实现保持字符串一致**。
+- **`WEB3_WALLET_BRIDGE_RUNTIME_CHANNEL`**：`chrome.runtime.sendMessage` 的通道名；background 侧对该 channel 的请求体做解析与路由（见 [`handleBridgeMessage.ts`](../../apps/extension/src/extension/utils/bridge/handleBridgeMessage.ts)）。
+- **`BRIDGE_POSTMESSAGE_KIND_PENDING`**：需用户在扩展 UI 中确认时，background 先返回挂起；隔离脚本将该 kind 转发给 inpage，并注册 `chrome.runtime.onMessage` 等待最终结果。
+- **`RUNTIME_MSG_DEFERRED_BRIDGE_RESULT`**：审批完成后 background 发往 tab 的消息类型，隔离脚本用于结束挂起并 **`postMessage`** 最终 `bridge-response`。
+
+**依赖边界**：隔离脚本使用 `@plugin/shared` 的 **`parseBridgeRequest`** 等解析桥接信封；inpage 侧**避免**引入会把 Node/大包打进页面上下文的依赖；当前除 **`~lib/bridge/constants`** 外仅引入 **`~lib/extensionLog`**（薄 `console` 封装，与文件头注释一致）。
+
+### 为何不用 `url:` 再注入 `<script src>`
+
+Plasmo 文档中 **`url:`** 用于拿到扩展内某**资源**的 URL（文档示例为 **`something.js`**）。在本仓库的 Parcel/Plasmo 组合下，对 **`.ts` 源**使用 `url:./inpageEvm.ts` 曾出现解析失败；**当前实现**改为 **`inpageEvm.ts` 作为独立内容脚本并声明 `world: 'MAIN'`**，与官方推荐一致，也避免重复维护「注入 + web_accessible_resources」路径。排障记录见 [runbook · extension-mv3.md](../runbook/extension-mv3.md)。
+
+### EIP-1193 当前能力（与实现一致）
+
+实现集中在 [`handleBridgeMessage.ts`](../../apps/extension/src/extension/utils/bridge/handleBridgeMessage.ts)（`eip1193_request` 内联或委托）。
+
+| 能力                                                                  | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eth_chainId` / `net_version` / `eth_accounts`                        | 读当前持久化网络与站点会话账户                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_blockNumber`                                                     | 读当前持久化网络的最新区块号（viem 公共 RPC）；**无需**站点已连接                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `eth_requestAccounts`                                                 | 挂起 → [`siteConnect`](../../apps/extension/src/tabs/siteConnect.tsx) 选**已导入的**本地账户并授权；**无账户时无法完成连接**；已授权后若会话被清空则返回未授权错误（[`pendingSiteConnect`](../../apps/extension/src/extension/utils/bridge/pendingSiteConnect.ts)）                                                                                                                                                                                                                                      |
+| `wallet_switchEthereumChain` / `wallet_addEthereumChain`              | 仅允许切换到 `@plugin/shared` 的 [`WALLET_BUILTIN_EVM_CHAINS`](../../packages/shared/src/evm/builtinEvmChains.ts)（扩展内由 [`readonly-evm-rpc`](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts) 绑定 viem 链与公共 RPC）；未知链切换返回 **4902**；自定义链返回不支持                                                                                                                                                                                                              |
+| `eth_getBalance`                                                      | 须站点已连接；经 [`fetchEthGetBalanceHex`](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)                                                                                                                                                                                                                                                                                                                                                                                          |
+| `personal_sign`                                                       | 须站点已连接、签名地址与会话账户一致、且该地址存在**本地加密账户**；挂起 → [`signPersonal`](../../apps/extension/src/tabs/signPersonal.tsx)（[`personalSignBridge`](../../apps/extension/src/extension/utils/bridge/personalSignBridge.ts)、[`pendingPersonalSign`](../../apps/extension/src/extension/utils/bridge/pendingPersonalSign.ts)）；用户在弹窗输入**导入时加密口令**（非长期内存解锁会话）                                                                                                    |
+| `eth_sign`                                                            | 参数 `[address, data]`（`data` 为 hex）；内部转为与 `personal_sign` 相同的挂起与签名路径（[`personalSignBridge`](../../apps/extension/src/extension/utils/bridge/personalSignBridge.ts)）；**高危接口**，展示与 `personal_sign` 一致                                                                                                                                                                                                                                                                      |
+| `eth_signTypedData` / `eth_signTypedData_v3` / `eth_signTypedData_v4` | 参数 `[address, typedData]`（`typedData` 为 JSON 字符串或对象，须含 `domain` / `types` / `primaryType` / `message`）；约束同 `personal_sign`；挂起 → [`signTypedData`](../../apps/extension/src/tabs/signTypedData.tsx)（[`typedDataSignBridge`](../../apps/extension/src/extension/utils/bridge/typedDataSignBridge.ts)、[`pendingTypedDataSign`](../../apps/extension/src/extension/utils/bridge/pendingTypedDataSign.ts)）；viem [`signTypedData`](https://viem.sh/docs/actions/wallet/signTypedData) |
+| `eth_sendTransaction`                                                 | 参数 `[tx]`；挂起 → [`signSendTransaction`](../../apps/extension/src/tabs/signSendTransaction.tsx)（[`sendTransactionBridge`](../../apps/extension/src/extension/utils/bridge/sendTransactionBridge.ts)）；返回 **交易哈希** 或 **已签名 RLP** 由侧栏全局 **`evmTxSubmitMode`**（[`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)）决定                                                                                                                                 |
+| `eth_signTransaction`                                                 | 参数 `[tx]`；挂起同上弹窗；**固定**仅返回已签名 RLP（不受 `evmTxSubmitMode` 影响）                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `eth_sendRawTransaction`                                              | 参数 `[serializedTx]`；须站点已连接；由 [`broadcastSignedRawTransaction`](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts) 经内置公共 RPC 广播，**无需**口令（交易已离线签好）                                                                                                                                                                                                                                                                                                            |
+| 互斥                                                                  | **连接挂起**、**`personal_sign` / `eth_sign` 挂起**、**EIP-712 挂起**、**`eth_sendTransaction` / `eth_signTransaction` 挂起**四者不能同时进行；`RUNTIME_MSG_*` 见 [`constants.ts`](../../apps/extension/src/extension/utils/bridge/constants.ts)                                                                                                                                                                                                                                                        |
+
+仍未实现或受限：**自定义 RPC 链**、生产级**会话解锁**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**。
+
+### Tron DApp（规划，与 [TECHNICAL-SOLUTION.md §4.1](./TECHNICAL-SOLUTION.md) 一致）
+
+- **SDK**：**`tronweb`**（npm `tronweb`），用于交易构造、合约调用编解码、与 Tron HTTP API 交互。
+- **页面形态**：目标与市面 Tron DApp 一致——**TronLink / TIP-1193 风格**的 `request` 与 **`window.tronLink` / `tronWeb` 注入约定**（**独立**于上文 EIP-1193 inpage）；实现时建议 **另设 MAIN 世界内容脚本**（或等价注入），避免与 `inpageEvm.ts` 混绑。
+- **现状**：仓库内**尚无** Tron inpage / bridge 实现；依赖与版本纳入 monorepo 时与根 `pnpm.overrides` 对齐。
+
+### 相关代码入口
+
+- **Background 枢纽**：[ `background.ts` ](../../apps/extension/src/background.ts)
+- **桥接处理**：[ `handleBridgeMessage.ts` ](../../apps/extension/src/extension/utils/bridge/handleBridgeMessage.ts)；子模块与维护优先级见 [bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)
+- **待连接弹窗**：[`openSiteConnectPopup.ts`](../../apps/extension/src/extension/utils/bridge/openSiteConnectPopup.ts)、[`pendingSiteConnect.ts`](../../apps/extension/src/extension/utils/bridge/pendingSiteConnect.ts)、[`resolvePendingSiteConnect.ts`](../../apps/extension/src/extension/utils/bridge/resolvePendingSiteConnect.ts)
+- **侧栏站点会话**：[`connectedSitesSection.tsx`](../../apps/extension/src/extension/ui/panels/wallet/sections/connectedSitesSection.tsx) + [`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)（`siteAuthSessions`、`WALLET_UI_STATE_STORAGE_KEY`；无内置演示地址，须导入本地账户后方可连接 DApp）
+- **待签名弹窗**：[`openPersonalSignPopup.ts`](../../apps/extension/src/extension/utils/bridge/openPersonalSignPopup.ts)、[`pendingPersonalSign.ts`](../../apps/extension/src/extension/utils/bridge/pendingPersonalSign.ts)、[`resolvePendingPersonalSign.ts`](../../apps/extension/src/extension/utils/bridge/resolvePendingPersonalSign.ts)
+- **EIP-712 弹窗**：[`openTypedDataSignPopup.ts`](../../apps/extension/src/extension/utils/bridge/openTypedDataSignPopup.ts)、[`pendingTypedDataSign.ts`](../../apps/extension/src/extension/utils/bridge/pendingTypedDataSign.ts)、[`resolvePendingTypedDataSign.ts`](../../apps/extension/src/extension/utils/bridge/resolvePendingTypedDataSign.ts)
+- **交易弹窗**（`eth_sendTransaction` / `eth_signTransaction`）：[`openSendTransactionPopup.ts`](../../apps/extension/src/extension/utils/bridge/openSendTransactionPopup.ts)（`openSendTransactionApprovalPopup`）、[`pendingSendTransaction.ts`](../../apps/extension/src/extension/utils/bridge/pendingSendTransaction.ts)、[`resolvePendingSendTransaction.ts`](../../apps/extension/src/extension/utils/bridge/resolvePendingSendTransaction.ts)、[`signSendTransaction` 页](../../apps/extension/src/tabs/signSendTransaction.tsx)
+- **产品对照**：[prd-extension.md](../product/prd-extension.md)；整体能力域见 [PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md)。

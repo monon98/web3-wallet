@@ -1,0 +1,24 @@
+---
+description: apps/extension 源码与类型文件命名（camelCase）及路径约定
+globs: apps/extension/**/*
+alwaysApply: false
+---
+
+# 扩展子项目：文件命名（camelCase）
+
+## 规则
+
+- **`apps/extension/src` 下** TypeScript / TSX **实现与类型文件**（含 `contents/`、`tabs/`、`extension/**`）文件名使用 **camelCase**（小驼峰）：首段小写字母，后续单词首字母大写，如 `allUrls.ts`、`handleBridgeMessage.ts`、`walletUiState.ts`、`contentScriptWhitelist.ts`。
+- **聚合出口**：各目录的 **`index.ts`** / **`index.tsx`** 保持小写 `index`，由 ESLint `unicorn/filename-case` 的 `ignore` 放行。
+- **Plasmo 根入口**（`background.ts`、`popup.tsx`、`sidepanel.tsx`、`devtools.tsx`）维持与官方示例一致的文件名；**`background.ts`** 为单词全小写，与 `unicorn/filename-case` 的 camelCase 约定并存，已在 `eslint.config.mjs` 中 **`ignores`** 排除误报。
+- **资源目录**：全局样式等放在 **`src/assets/`**（`import '~/assets/style.css'`），勿使用 `asserts` 等易混拼写。
+- **钱包领域目录**：持久态与只读 RPC 实现在 **`src/extension/utils/walletUi/`**（camelCase 目录名），导入使用 **`~lib/walletUi/...`**；日志模块为 **`extensionLog.ts`**（`~lib/extensionLog`）。
+
+## 与 manifest 同步
+
+- **`contentScriptWhitelist.ts`** 中 **`CONTENT_SCRIPT_MATCH_PATTERNS`** 须与 **`package.json` → `manifest.web_accessible_resources[0].matches`**（及按需的 **`host_permissions`**）保持同源；Chrome manifest 不能从 TS 自动推导。
+
+## 工具链
+
+- 校验：`apps/extension` 下执行 **`pnpm lint`**（依赖 `eslint.config.mjs` 中 **`unicorn/filename-case`**）。
+- 更完整的扩展路径别名见 **`apps/extension/tsconfig.json`** 与 [.cursor/rules/web3-wallet-extension.mdc](mdc:.cursor/rules/web3-wallet-extension.mdc)。

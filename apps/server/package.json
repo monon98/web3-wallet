@@ -1,0 +1,40 @@
+{
+  "name": "@plugin/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fastify HTTP API、ChainGateway 骨架（与技术方案对齐）",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "pnpm -w exec prettier --write \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\"",
+    "format:check": "pnpm -w exec prettier --check \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\""
+  },
+  "dependencies": {
+    "@fastify/cors": "10.0.2",
+    "@fastify/swagger": "9.7.0",
+    "@fastify/swagger-ui": "5.2.5",
+    "@plugin/shared": "workspace:*",
+    "fastify": "5.2.1",
+    "pino": "9.14.0",
+    "viem": "2.47.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@types/node": "22.10.2",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.5",
+    "pino-pretty": "13.0.0",
+    "prettier": "3.8.1",
+    "tsx": "4.19.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.2"
+  }
+}

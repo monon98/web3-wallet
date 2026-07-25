@@ -1,0 +1,4 @@
+{
+  // 打开本仓库时建议安装的扩展（格式化 / 校验与配置一致）
+  "recommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "stylelint.vscode-stylelint"]
+}

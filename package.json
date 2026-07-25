@@ -1,0 +1,43 @@
+{
+  "name": "plugin-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "四端区块链系统 monorepo（扩展 / Web / 服务端 / 合约）",
+  "packageManager": "pnpm@9.15.4",
+  "targets": {
+    "default": {
+      "engines": {
+        "browsers": "last 2 Chrome versions, not dead"
+      }
+    }
+  },
+  "scripts": {
+    "build": "pnpm build:shared && pnpm build:extension && pnpm build:web && pnpm build:server",
+    "build:shared": "pnpm --filter @plugin/shared build",
+    "build:extension": "pnpm --filter web3-wallet build",
+    "build:web": "pnpm --filter @plugin/web build",
+    "build:server": "pnpm --filter @plugin/server build",
+    "dev:extension": "pnpm --filter web3-wallet dev",
+    "dev:web": "pnpm --filter @plugin/web dev",
+    "dev:server": "pnpm --filter @plugin/server dev",
+    "typecheck": "pnpm build:shared && pnpm --filter @plugin/ui typecheck && pnpm --filter web3-wallet typecheck && pnpm --filter @plugin/web typecheck && pnpm --filter @plugin/server typecheck",
+    "lint": "pnpm --filter @plugin/shared lint && pnpm --filter @plugin/ui lint && pnpm --filter web3-wallet lint && pnpm --filter @plugin/web lint && pnpm --filter @plugin/server lint",
+    "format": "prettier --write \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\""
+  },
+  "keywords": [],
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "3.8.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/node": "22.10.2",
+      "prettier": "3.8.1",
+      "typescript": "5.9.3",
+      "viem": "2.47.6",
+      "zod": "3.25.76",
+      "zod-validation-error": "3.5.3"
+    }
+  }
+}

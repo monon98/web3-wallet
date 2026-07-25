@@ -1,0 +1,37 @@
+{
+  "name": "@plugin/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "扩展与 Web 共用的轻量 React UI（UnoCSS 原子类，无样式运行时）",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.5",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.2"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "pnpm -w exec prettier --write \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\"",
+    "format:check": "pnpm -w exec prettier --check \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\""
+  }
+}

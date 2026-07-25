@@ -1,0 +1,6 @@
+# Stylelint 跳过依赖与构建产物（与 .prettierignore 中目录对齐）
+
+node_modules
+dist
+build
+coverage

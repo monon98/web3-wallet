@@ -1,0 +1,22 @@
+{
+  "extends": "plasmo/templates/tsconfig.base",
+  "exclude": ["node_modules"],
+  "include": [".plasmo/index.d.ts", "./**/*.ts", "./**/*.tsx"],
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "paths": {
+      "~lib/*": ["./src/extension/utils/*"],
+      "~/components/*": ["./src/extension/ui/*"],
+      "~/hooks/*": ["./src/extension/hooks/*"],
+      "@assets/*": ["./src/assets/*"],
+      "~/types": ["./src/extension/types/index.ts"],
+      "~/types/*": ["./src/extension/types/*"],
+      "~/constants": ["./src/extension/constants/index.ts"],
+      "~/constants/*": ["./src/extension/constants/*"],
+      "~web3": ["./src/extension/web3/index.ts"],
+      "~web3/*": ["./src/extension/web3/*"],
+      "~*": ["./src/*"]
+    },
+    "baseUrl": "."
+  }
+}

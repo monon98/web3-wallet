@@ -1,0 +1,14 @@
+# Prettier 不处理的目录与文件（锁文件由工具自身维护，避免无意义 diff）
+
+node_modules
+dist
+build
+coverage
+.next
+.nuxt
+.output
+*.min.js
+*.min.css
+pnpm-lock.yaml
+package-lock.json
+yarn.lock

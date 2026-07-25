@@ -1,0 +1,24 @@
+---
+description: Plasmo 浏览器扩展（apps/extension）约定
+globs: apps/extension/**/*
+alwaysApply: false
+---
+
+# 扩展子项目
+
+- 栈：Plasmo（Chrome MV3）、React 19、TypeScript、UnoCSS、viem、bip39；脚本见 [package.json](mdc:apps/extension/package.json)。
+- 路径别名：见 `apps/extension/tsconfig.json`（`~lib/*` → `src/extension/utils/*`、`~/components/*` → `src/extension/ui/*`、`~/hooks/*`、`~/types`、`~/constants`、`~web3` 等）。
+  **扩展内无业务语义的纯工具**在 **`src/extension/utils/common/**`**（按文件导入，如 `~lib/common/csvEscape`），抽取落点与 [`.cursor/rules/agent-workflow.mdc`](mdc:.cursor/rules/agent-workflow.mdc)「抽取落点约定」一致。
+  **类型仅从 `~/types` 引用**（`src/extension/types/index.ts` 用 **`export type * from './…'`** 聚合子文件）。
+  **禁止**在 `tsconfig.json` 的 `paths` 里声明 **`@types` / `@types/*`** 指向源码类型目录，见 [docs/runbook/extension-mv3.md](mdc:docs/runbook/extension-mv3.md)。
+- **`src/tabs/*`（新标签页）与 viem / 重逻辑**：`tabs/` 内需要 `toHex`、`getAddress` 等时 **`import { … } from '~web3'`**，**勿**写 **`from 'viem'`**。
+  链上 HD / 批量地址派生实现放在 **`src/extension/web3/`**（`~web3/base/hd/*`、`~web3/evm/addressGenerator`、`~web3/tvm/tvmAddressGenerator`、`~web3/btc/*`）。
+  与 `tabs` 同 Parcel 图的组合逻辑放在 **`src/extension/utils/`**（如 `generateAccountsTabHelpers.ts`），避免 Parcel 仅拆 **`tabs/`** 子 chunk 时出现 **`… is not a function`**。说明见 [docs/runbook/extension-mv3.md](mdc:docs/runbook/extension-mv3.md)。
+- **文件名（camelCase）**：`src` 下 `.ts` / `.tsx` 实现与类型文件统一 **小驼峰**；`index.ts`、`background.ts` 等例外与 **`contentScriptWhitelist` ↔ manifest 同步** 见 [.cursor/rules/extension-filename-camelcase.mdc](mdc:.cursor/rules/extension-filename-camelcase.mdc) 与 `eslint.config.mjs`。
+- **与 Web 共用的原子 UI**（按钮、表单控件、折叠区块等）放在 **`@plugin/ui`**（`packages/ui`），勿在扩展内重复实现；扩展专有布局在 **`src/extension/ui/`**（如 `ui/panels/`）。
+- **类型**：业务与桥接等 TypeScript 类型放在 **`src/extension/types/`**（按域分文件，`index.ts` 统一导出）；**DApp 桥挂起态与 handler** 见 **`types/bridge/`**（`~/types/bridge`）。实现文件优先 `import type { … } from '~/types'`，避免在 `ui/`、`utils/` 内散落 `export type`（`@plugin/shared` / `@plugin/ui` 类型仍从原包引用）。
+- **DApp 桥**：按功能分子目录（`utils/bridge/siteConnect|personalSign|typedData|transaction`），入口 **`handleBridgeMessage.ts`** 与 **`constants.ts`** 留在 `bridge/` 根；详见 [`bridge/README.md`](mdc:apps/extension/src/extension/utils/bridge/README.md) 与 [.cursor/rules/extension-bridge-modules.mdc](mdc:.cursor/rules/extension-bridge-modules.mdc)。
+- 业务逻辑在 **`src/extension/utils/`**（bridge、vault、`walletUi`、extension 壳层等）、**`src/extension/web3/`**、**`src/extension/background/`**；Plasmo 入口（`background.ts`、`contents/`、`tabs/`）仍在 **`src/`** 根下。
+- 敏感能力（解密、签名、持久化密钥）应经 **background / 统一 messaging** 收敛，避免在 content script 或任意页面上下文直接持有长期明文密钥。
+- 格式化与 Lint：Prettier、ESLint、stylelint（CSS）；`pnpm format`、`pnpm lint`、`pnpm stylelint`。
+- UI 文案与注释可与现有文件一致使用中文。
