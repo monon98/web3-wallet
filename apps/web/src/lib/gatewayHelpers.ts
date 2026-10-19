@@ -1,4 +1,7 @@
-import { EVEXPLORER_MAX_ADDRESSES_PER_BATCH } from '@plugin/shared';
+import {
+  EVEXPLORER_MAX_ADDRESSES_PER_BATCH,
+  TRONEXPLORER_MAX_ADDRESSES_PER_BATCH
+} from '@plugin/shared';
 
 export type EvmStatus = { rpc: boolean; etherscan: boolean };
 
@@ -37,8 +40,28 @@ export type TokenBalancesResponse = {
   }>;
 };
 
+export type TronStatus = {
+  apiKeyConfigured: boolean;
+  minIntervalMs: number;
+};
+
+export type TronAccountBalances = {
+  address: string;
+  balanceSun: string;
+  trc20: Array<{ contractAddress: string; balanceRaw: string }>;
+  error?: string;
+};
+
+export type TronAccountsResponse = {
+  accounts: TronAccountBalances[];
+};
+
 export const DEFAULT_ADDRESSES = `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 0xde0b295669a9FD93d5f28d9ec85e40f4CB697BAe`;
+
+/** 示例地址：TRON 超级代表候选（账户数据量适中，便于演示） */
+export const DEFAULT_TRON_ADDRESSES = `TN2W4cc7a4dsYyTLiLMWa9m7jVpdLjGvYs
+TC6qGw3d6h25gjcM64KLuZn1cznNi5NR6t`;
 
 export const CHAIN_OPTIONS: ReadonlyArray<{ id: number; label: string }> = [
   { id: 1, label: 'Ethereum 主网 (1)' },
@@ -49,12 +72,23 @@ export const CHAIN_OPTIONS: ReadonlyArray<{ id: number; label: string }> = [
   { id: 56, label: 'BSC (56)' }
 ];
 
-export function parseAddressLines(text: string): string[] {
+/** TRC-20 列表预览上限（避免超大账户渲染上千行；完整数据见原始 JSON） */
+export const TRC20_PREVIEW_LIMIT = 20;
+
+function splitAddressLines(text: string): string[] {
   return text
     .split(/[\n,]+/)
     .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, EVEXPLORER_MAX_ADDRESSES_PER_BATCH);
+    .filter(Boolean);
+}
+
+export function parseAddressLines(text: string): string[] {
+  return splitAddressLines(text).slice(0, EVEXPLORER_MAX_ADDRESSES_PER_BATCH);
+}
+
+/** Tron 地址行解析；上限与服务端 `POST /api/v1/tron/explorer/accounts` 一致。 */
+export function parseTronAddressLines(text: string): string[] {
+  return splitAddressLines(text).slice(0, TRONEXPLORER_MAX_ADDRESSES_PER_BATCH);
 }
 
 export function shortAddress(addr: string): string {

@@ -21,6 +21,9 @@
 - **0.45** · 2026-10-19  
   服务端：**Tron 网关骨架**（数据源 **TronGrid**）——`GET /api/v1/tron/status`、`GET /api/v1/tron/explorer/account`、`POST /api/v1/tron/explorer/accounts`（按地址**串行**请求 + `SERVER_TRON_MIN_INTERVAL_MS` 节流，单次 ≤ 20 地址）；`SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY`；`@plugin/shared` 新增 `http/tronExplorer`；§5.2、§5.4、§10 与 [server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[shared.md](./shared.md) 同步
 
+- **0.46** · 2026-10-20  
+  Web：`/gateway` 联调页接入服务端 **Tron 网关**——单地址 / 批量查询 **TRX** 与 **TRC-20 原始数量**（每批 ≤ 20；表格预览上限 20 条，原始 JSON 保留全量）；批量中单地址失败按条目提示、不中断整批；[web.md](./web.md)、[prd-web.md](../product/prd-web.md)、§10 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -502,7 +505,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 EVM 联调。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 **EVM / Tron** 联调。
 
 [apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、Etherscan V2、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）与 **Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`），见 §5.2。
 
