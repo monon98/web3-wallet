@@ -18,5 +18,5 @@
 
 ## 2. 已实现与缺口（产品视角）
 
-- **已有**：Next + viem + TanStack Query + UnoCSS + `@plugin/ui`；**网关演示页**可联调服务端 EVM 接口；**钱包连接页** [`wallet-demo`](../../apps/web/src/app/wallet-demo/page.tsx) 可联调扩展 EIP-1193：<code>eth_requestAccounts</code>、<code>eth_chainId</code>、<code>eth_blockNumber</code>、<code>eth_getBalance</code>（内置链主币符号与区块参数来自 `@plugin/shared` 的 <code>WALLET_BUILTIN_EVM_CHAINS</code> 与页面选择）、<code>wallet_switchEthereumChain</code> / <code>wallet_addEthereumChain</code>、<code>personal_sign</code>（与扩展 [`signPersonal`](../../apps/extension/src/tabs/signPersonal.tsx) 弹窗配合）。
-- **仍缺**：SIWE/会话、完整业务门户与批量查询正式页（相对整体 §A4）。
+- **已有**：Next + viem + TanStack Query + UnoCSS + `@plugin/ui`；`/`（首页与演示导航）、**钱包联调页** [`/wallet`](../../apps/web/src/app/wallet/page.tsx)（EIP-6963 发现注入 provider；可联调 <code>eth_requestAccounts</code>、<code>eth_accounts</code>、<code>eth_chainId</code>、<code>eth_blockNumber</code>、<code>eth_getBalance</code>（主币符号与区块参数来自 `@plugin/shared` 的 <code>WALLET_BUILTIN_EVM_CHAINS</code> 与页面选择）、<code>wallet_switchEthereumChain</code> / <code>wallet_addEthereumChain</code>、<code>personal_sign</code>，与扩展 [`signPersonal`](../../apps/extension/src/tabs/signPersonal.tsx) 弹窗配合）、**网关演示页** [`/gateway`](../../apps/web/src/app/gateway/page.tsx)（服务端 EVM 接口：`/api/v1/meta`、`/api/v1/evm/status`、批量原生余额、多地址 ERC-20 持仓）。
+- **仍缺**：SIWE/会话（契约已在 `@plugin/shared`，服务端认证路由未实现）、完整业务门户与批量查询正式页（相对整体 §A4）。

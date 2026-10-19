@@ -15,6 +15,9 @@
 - **0.43** · 2026-10-19  
   AI 编码配置由 Cursor 迁移至 OpenCode：全仓规则 `.opencode/rules/*.md`（[opencode.json](../../opencode.json) 的 `instructions` 加载）、子项目规则为嵌套 `AGENTS.md`（`apps/extension/`、`packages/ui/`、`apps/extension/src/extension/utils/bridge/`）；`.cursorignore` 检索排除改为 `watcher.ignore`；[OPENCODE-SETUP.md](./opencode/OPENCODE-SETUP.md) 与各文档引用同步
 
+- **0.44** · 2026-10-19  
+  文档：产品 / 工程文档与代码现状同步——扩展 **TVM 账户管理**、**交易类 EIP-1193**（四类审批互斥与 `evmTxSubmitMode`）、**多链地址生成器**（EVM/TVM/BTC，CSV / JSON 导出）；Web 联调页（`wallet-demo` → `/wallet`、`/gateway`）；服务端 `batch-sender/build`、`status`、`meta`；`@plugin/shared` 契约与错误码清单；§4.1「当前代码基线」、§10 与 [extension.md](./extension.md)、[shared.md](./shared.md) 等同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -55,7 +58,7 @@
 - **0.23** · 2026-04-05  
   扩展：移除**内置演示地址**（Anvil 默认地址等）；`chrome.storage.local` 钱包 UI 状态键为 **`web3_wallet_ui_v1`**；站点会话与无本地账户/已删账户对齐的**清理**；连接与 EIP-1193 须**至少一个加密账户**；侧栏监听 **`WALLET_UI_STATE_STORAGE_KEY`**
 - **0.22** · 2026-04-05  
-  `@plugin/shared`：新增 [`evm/builtin-demo-chains`](../../packages/shared/src/evm/builtin-demo-chains.ts)（扩展内置链 ID/名称/主币符号，与 Web `wallet-demo` 共用）；扩展 EIP-1193 增加只读 **`eth_blockNumber`**；`wallet_*` / 只读 RPC 校验链 ID 改用 `isDemoWalletBuiltinEvmChainIdHex`
+  `@plugin/shared`：新增 `evm/builtin-demo-chains`（`packages/shared/src/evm/builtin-demo-chains.ts`；后更名 `builtinEvmChains.ts`）（扩展内置链 ID/名称/主币符号，与 Web `wallet-demo` 共用）；扩展 EIP-1193 增加只读 **`eth_blockNumber`**；`wallet_*` / 只读 RPC 校验链 ID 改用 `isDemoWalletBuiltinEvmChainIdHex`
 - **0.21** · 2026-04-05  
   工程文档与规则：[ui.md](./ui.md) 补充 `@plugin/ui` **组件清单**与开发约定；新增 [packages/ui/AGENTS.md](../../packages/ui/AGENTS.md)、[.opencode/rules/docs-maintenance.md](../../.opencode/rules/docs-maintenance.md)，约定 UI 包导出变更须**同任务**更新 `ui.md`、**不必**向用户确认是否写文档
 - **0.20** · 2026-04-05  
@@ -255,9 +258,9 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **钱包 UI / 只读 RPC**：[walletUiState.ts](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)、[readonlyEvmRpc.ts](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)。
 
-**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/panels/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/panels/wallet/sections/connectedSitesSection.tsx) 已连接网站列表与断开）。
+**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站列表与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / 交易提交方式 / 站点授权策略）。
 
-**审批 Tab**：[siteConnect](../../apps/extension/src/tabs/siteConnect.tsx)、[signPersonal](../../apps/extension/src/tabs/signPersonal.tsx)、[signTypedData](../../apps/extension/src/tabs/signTypedData.tsx)、[signSendTransaction](../../apps/extension/src/tabs/signSendTransaction.tsx)、[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)。
+**审批与账户 Tab**：[siteConnect](../../apps/extension/src/tabs/siteConnect.tsx)、[signPersonal](../../apps/extension/src/tabs/signPersonal.tsx)、[signTypedData](../../apps/extension/src/tabs/signTypedData.tsx)、[signSendTransaction](../../apps/extension/src/tabs/signSendTransaction.tsx)；账户管理 [evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)、[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)（TVM 仅生成 / 导入 / 列表，不签名）；[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)（EVM / TVM / BTC 批量派生与导出）。
 
 **EIP-1193（EVM）**：只读与账户类——`eth_chainId`、`net_version`、`eth_accounts`、`eth_requestAccounts`、`wallet_switchEthereumChain` / `wallet_addEthereumChain`（内置链）、`eth_getBalance`、`eth_blockNumber`、`eth_sendRawTransaction`。
 
@@ -267,7 +270,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **挂起互斥**：连接、`personal_sign`/`eth_sign`、EIP-712、`eth_sendTransaction`/`eth_signTransaction` **四者不得同时挂起**（见 [bridge/constants](../../apps/extension/src/extension/utils/bridge/constants.ts)）。
 
-**仍未实现或受限**：**自定义 RPC 链**、生产级**会话解锁**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**；站点侧尚无搜索/分组等增强。明细表见 [extension.md](./extension.md)「EIP-1193 当前能力」。
+**仍未实现或受限**：**多钱包档案**、**自定义 RPC 链**、生产级**会话解锁**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**；**BTC** 仅地址派生工具（钱包 / 签名未实现）；站点侧尚无搜索 / 分组等增强。明细表见 [extension.md](./extension.md)「EIP-1193 当前能力」。
 
 #### 开发态可观测性（扩展日志索引）
 
@@ -483,17 +486,17 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 **EVM DApp**：[`personal_sign`](../../apps/extension/src/tabs/signPersonal.tsx) / **`eth_sign`**（同路径）、[**EIP-712** `eth_signTypedData*`](../../apps/extension/src/tabs/signTypedData.tsx)、[**`eth_sendTransaction` / `eth_signTransaction`**](../../apps/extension/src/tabs/signSendTransaction.tsx)、**`eth_sendRawTransaction`**（无口令）、连接 [`siteConnect`](../../apps/extension/src/tabs/siteConnect.tsx)；全局 **`evmTxSubmitMode`**（[`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)）。
 
-侧栏 **已连接网站** 列表与断开。
+侧栏 **已连接网站** 列表与断开、**DApp 全局设置**（默认账户、交易提交方式、站点授权策略）；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）。
 
 细节见 [extension.md](./extension.md)；**开发态 `extLog*` 索引**见 **§4.1「开发态可观测性」**。
 
-**未完成**：会话级解锁、站点管理增强（搜索等）、**自定义链**、通用 DApp 全量验收；**Tron DApp** 选型 **`tronweb`**（见 §0.25 / §4.1），**尚未编码**。
+**未完成**：多钱包档案、会话级解锁、站点管理增强（搜索等）、**自定义链**、通用 DApp 全量验收；**Tron DApp** 选型 **`tronweb`**（见 §0.25 / §4.1），**尚未编码**；BTC 仅地址派生工具。
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query 骨架）。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 EVM 联调。
 
-[apps/server](../../apps/server/)（Fastify，**EVM JSON-RPC 代理** + **Etherscan V2** + **`BalanceBatchReader` 链上批量读** `POST /api/v1/evm/balance-reader/query`，见 §5.2）。
+[apps/server](../../apps/server/)（Fastify，**EVM JSON-RPC 代理** + **Etherscan V2** + **`BalanceBatchReader` 链上批量读** `POST /api/v1/evm/balance-reader/query` + **`BatchSender` calldata 构造** `POST /api/v1/evm/batch-sender/build` + `GET /api/v1/evm/status`，见 §5.2）。
 
 **Auth / 业务 API / Tron·BTC 网关** 仍待迭代。
 
@@ -503,7 +506,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### 共享
 
-[packages/shared](../../packages/shared/)：Bridge 信封、HTTP/EVM explorer / **balance-reader 请求** Zod 与类型。
+[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tx` / `auth`）与错误码（`errors/`）。
 
 ### 根目录
 

@@ -17,5 +17,5 @@
 
 ## 2. 已实现与缺口（产品视角）
 
-- **已有**：EVM **RPC 代理**与 **Etherscan** 相关路由（技术方案 §5.2）。
-- **仍缺**：Tron/BTC、统一 Auth、完整批量多链 API（相对本章 §1、整体 §A5）。
+- **已有**：EVM **RPC 代理**（`POST /api/v1/evm/rpc`，方法白名单、批量上限）、**Etherscan V2** 路由（单 / 批量原生余额、多地址 ERC-20 持仓）、链上批量 **`POST /api/v1/evm/balance-reader/query`**（`BalanceBatchReader`）、**`POST /api/v1/evm/batch-sender/build`**（构造 calldata，非托管）、探测 **`GET /api/v1/evm/status`** 与 **`GET /api/v1/meta`**；开发态 OpenAPI / Swagger（技术方案 §5.2）。
+- **仍缺**：**Tron/BTC ChainGateway**（按 `chainFamily` 路由；Tron 数据源如 TronGrid）、统一 Auth（SIWE 契约已在 `@plugin/shared` 预留）、交易广播与统一批量多链 API、限流/缓存策略（相对本章 §1、整体 §A5）。

@@ -2,7 +2,7 @@
 
 本目录按 **产品 / 工程 / 运行手册** 分层；**子项目**在技术方案与各子目录的「速查」表中交叉引用。仓库级 Agent 说明见根目录 [AGENTS.md](../AGENTS.md)。
 
-**路径迁移（2026-04-05）**：原根下 `docs/TECHNICAL-SOLUTION.md` → [engineering/TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md)；`docs/PRODUCT-FEATURES.md` → [product/PRODUCT-FEATURES.md](./product/PRODUCT-FEATURES.md)；`docs/CURSOR-SETUP.md` → [engineering/cursor/CURSOR-SETUP.md](./engineering/cursor/CURSOR-SETUP.md)。
+**路径迁移（2026-04-05）**：原根下 `docs/TECHNICAL-SOLUTION.md` → [engineering/TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md)；`docs/PRODUCT-FEATURES.md` → [product/PRODUCT-FEATURES.md](./product/PRODUCT-FEATURES.md)；`docs/CURSOR-SETUP.md` → `docs/engineering/cursor/CURSOR-SETUP.md`（该文件后于 2026-10-19 迁移为 OpenCode 配置文档，见下）。
 
 **迁移（2026-10-19）**：AI 编码配置由 Cursor 迁至 OpenCode——`.cursor/rules/*.mdc` → [`.opencode/rules/*.md`](../.opencode/rules/)（由 [opencode.json](../opencode.json) 的 `instructions` 加载）+ 子项目嵌套 `AGENTS.md`；`.cursorignore` → `opencode.json` 的 `watcher.ignore`；`docs/engineering/cursor/CURSOR-SETUP.md` → [engineering/opencode/OPENCODE-SETUP.md](./engineering/opencode/OPENCODE-SETUP.md)。
 

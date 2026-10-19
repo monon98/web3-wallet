@@ -15,5 +15,5 @@
 
 ## 2. 已实现与缺口（产品视角）
 
-- **已有**：Foundry 骨架与示例合约。
-- **仍缺**：业务合约与多链地址表（相对本章 §1、整体 §A6）。
+- **已有**：Foundry 工程与测试；`eth/`（`Token`、`TokenPermit`）与 `evm/`（`BalanceBatchReader`、`BatchSender`、`BatchCollector`）、`common/Err`；服务端已消费 Reader / Sender（`EVM_BALANCE_READER_ADDRESSES_JSON`、`EVM_BATCH_SENDER_ADDRESSES_JSON`，见 [contracts.md](../engineering/contracts.md)）。
+- **仍缺**：业务主线合约与部署地址登记流程（脚本 → 地址表 → shared / 配置）；Tron TVM 合约另立项（相对本章 §1、整体 §A6）。

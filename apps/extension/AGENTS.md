@@ -13,7 +13,7 @@
   链上 HD / 批量地址派生实现放在 **`src/extension/web3/`**（`~web3/base/hd/*`、`~web3/evm/addressGenerator`、`~web3/tvm/tvmAddressGenerator`、`~web3/btc/*`）。
   与 `tabs` 同 Parcel 图的组合逻辑放在 **`src/extension/utils/`**（如 `generateAccountsTabHelpers.ts`），避免 Parcel 仅拆 **`tabs/`** 子 chunk 时出现 **`… is not a function`**。说明见 `docs/runbook/extension-mv3.md`。
 - **文件名（camelCase）**：`src` 下 `.ts` / `.tsx` 实现与类型文件统一 **小驼峰**；`index.ts`、`background.ts` 等例外与 **`contentScriptWhitelist` ↔ manifest 同步** 见下文「文件命名细则」与 `eslint.config.mjs`。
-- **与 Web 共用的原子 UI**（按钮、表单控件、折叠区块等）放在 **`@plugin/ui`**（`packages/ui`），勿在扩展内重复实现，细则见 `packages/ui/AGENTS.md`；扩展专有布局在 **`src/extension/ui/`**（如 `ui/panels/`）。
+- **与 Web 共用的原子 UI**（按钮、表单控件、折叠区块等）放在 **`@plugin/ui`**（`packages/ui`），勿在扩展内重复实现，细则见 `packages/ui/AGENTS.md`；扩展专有布局在 **`src/extension/ui/`**（如 `ui/wallet/`）。
 - **类型**：业务与桥接等 TypeScript 类型放在 **`src/extension/types/`**（按域分文件，`index.ts` 统一导出）；**DApp 桥挂起态与 handler** 见 **`types/bridge/`**（`~/types/bridge`）。实现文件优先 `import type { … } from '~/types'`，避免在 `ui/`、`utils/` 内散落 `export type`（`@plugin/shared` / `@plugin/ui` 类型仍从原包引用）。
 - **DApp 桥**：按功能分子目录（`utils/bridge/siteConnect|personalSign|typedData|transaction`），入口 **`handleBridgeMessage.ts`** 与 **`constants.ts`** 留在 `bridge/` 根；细则见 `src/extension/utils/bridge/AGENTS.md` 与 `bridge/README.md`。
 - 业务逻辑在 **`src/extension/utils/`**（bridge、vault、`walletUi`、extension 壳层等）、**`src/extension/web3/`**、**`src/extension/background/`**；Plasmo 入口（`background.ts`、`contents/`、`tabs/`）仍在 **`src/`** 根下。
