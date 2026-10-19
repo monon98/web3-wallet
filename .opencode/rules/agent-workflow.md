@@ -1,8 +1,3 @@
----
-description: Agent 工作流习惯（计划→落地→校验）与跨模块抽取落点
-alwaysApply: true
----
-
 # Agent 工作流（本仓库推荐）
 
 ## 先计划，后大改
@@ -27,4 +22,3 @@ alwaysApply: true
 
 - **改完关键模块就校验**：优先在目标子项目内跑 `lint` + `typecheck`（例如扩展：`--filter web3-wallet`；UI 包：`--filter @plugin/ui`）。
 - **新增文件/抽公共组件后**：确保所有导入路径与导出入口已更新，避免“编译通过但运行缺组件”的问题。
-

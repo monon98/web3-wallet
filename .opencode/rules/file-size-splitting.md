@@ -1,8 +1,3 @@
----
-description: Prefer splitting files once they exceed ~400 lines
-alwaysApply: true
----
-
 # 文件大小与拆分（>400 行尽量拆分）
 
 当单个源码文件（`.ts` / `.tsx` / `.js` / `.jsx`）**超过 400 行**时，优先考虑拆分为多个更小、更单一职责的模块，以提升可读性、可维护性与代码评审效率。
@@ -25,4 +20,3 @@ alwaysApply: true
 - **工具链/配置/生成物**：如 `eslint.config.*`、`tsconfig.*`、`.d.ts`、自动生成代码。
 - **框架强约定入口**：框架/平台要求单文件入口且拆分会破坏构建或约定时。
 - **文档与测试夹具**：可读性优先，不强制按 400 行拆分。
-

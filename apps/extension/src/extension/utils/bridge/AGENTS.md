@@ -1,14 +1,8 @@
----
-description: 扩展 DApp 桥目录结构、类型路径与维护优先级
-globs:
-  - apps/extension/src/extension/utils/bridge/**/*
-  - apps/extension/src/extension/types/bridge/**/*
-alwaysApply: false
----
-
 # 扩展 bridge 模块约定
 
-## 路径别名（Cursor / TS）
+> 作用域：`apps/extension/src/extension/utils/bridge/**`（并约定 `src/extension/types/bridge/**` 的类型出口）。OpenCode 在读取本目录内文件时自动加载本文件。
+
+## 路径别名（TS）
 
 - **`~lib/bridge/...`** → `apps/extension/src/extension/utils/*`，子路径随目录存在即可解析；**无需**改 `tsconfig.json`。
 - **`~/types/bridge`** → `apps/extension/src/extension/types/bridge/index.ts`（已配置 `~/types/*`）。

@@ -6,11 +6,11 @@
 
 ---
 
-| 主题                                        | 文档                                                 |
-| ------------------------------------------- | ---------------------------------------------------- |
-| 工具链与仓库（Cursor Plan、pnpm filter 等） | [toolchain-and-repo.md](./toolchain-and-repo.md)     |
-| 服务端 EVM / Etherscan / RPC                | [server-evm-etherscan.md](./server-evm-etherscan.md) |
-| 浏览器扩展 MV3 / Plasmo / Parcel            | [extension-mv3.md](./extension-mv3.md)               |
-| CI / Foundry 合约                           | [ci-contracts.md](./ci-contracts.md)                 |
+| 主题                                          | 文档                                                 |
+| --------------------------------------------- | ---------------------------------------------------- |
+| 工具链与仓库（OpenCode 配置、pnpm filter 等） | [toolchain-and-repo.md](./toolchain-and-repo.md)     |
+| 服务端 EVM / Etherscan / RPC                  | [server-evm-etherscan.md](./server-evm-etherscan.md) |
+| 浏览器扩展 MV3 / Plasmo / Parcel              | [extension-mv3.md](./extension-mv3.md)               |
+| CI / Foundry 合约                             | [ci-contracts.md](./ci-contracts.md)                 |
 
 **目录说明**：[runbook/README.md](./README.md)

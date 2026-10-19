@@ -1,8 +1,3 @@
----
-description: 注释与可读性：何时写、模块头、JSDoc、Agent 自动补强（全仓库）
-alwaysApply: true
----
-
 # 注释与可读性（Agent 生成 / 修改代码时）
 
 ## 何时写注释
@@ -37,4 +32,4 @@ alwaysApply: true
 ## 写法与边界
 
 - 紧挨相关代码块上方；**与当前文件、相邻注释语言一致**（中文或英文）。
-- 注释中**不得**出现真实密钥、助记词、未脱敏隐私数据；与 [web3-security.mdc](mdc:.cursor/rules/web3-security.mdc) 一致。
+- 注释中**不得**出现真实密钥、助记词、未脱敏隐私数据；与 [web3-security.md](./web3-security.md) 一致。

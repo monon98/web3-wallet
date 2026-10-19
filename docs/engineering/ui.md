@@ -37,8 +37,8 @@
 - **类型目录**：Props / variant 等放在 **`src/types/*.ts`**，由 **`src/types/index.ts`** 聚合；包根 **`index.ts`** 使用 **`export type * from './types'`** 再导出全部类型（与全仓 `src/types` 约定一致）。
 - **主题 tokens（必须遵守）**：`@plugin/ui` 组件的颜色/边框/背景**优先读取** `--ui-*` CSS Variables（Design Tokens），避免硬编码 `bg-emerald-*` / `text-neutral-*` 等具体色阶（除非非常局部且写清原因）。两端（Web/Extension）各自的全局样式负责提供 tokens。\n+ - **写法**：在 Uno 类名中用 arbitrary values，例如 `bg-[var(--ui-surface-1)]`、`text-[var(--ui-fg)]`、`border-[var(--ui-border)]`。\n+ - **暗黑**：由 `.dark` 覆盖 tokens 值；组件内一般不再写 `dark:*` 分支（除非与 tokens 无关的布局/动效）。\n+- **样式**：仅用 **UnoCSS 工具类**字符串拼接（与现有组件相同），不在包内引入 CSS-in-JS 或全局 CSS。`PanelSection` 正文字号默认 **`text-sm`**、标题 **`text-base`**，内边距 **`p-4`**，与扩展/Web 可读性一致。
 - **客户端组件**：仅在有 hook / 浏览器状态时加 **`'use client'`**（当前仅 `CollapsibleSection`）。
-- **注释**：导出类型与组件上，对**非显而易见**的语义、可访问性、与 Uno 预设的耦合等使用 **JSDoc 或简短中文注释**（与 [code-comments.mdc](../../.cursor/rules/code-comments.mdc) 一致）；禁止在注释中写入密钥、助记词等敏感内容。
-- **文档同步**：**新增、重命名或删除**对外导出时，**须在同一任务内**更新本文 **「组件清单」** 表，使与 `index.ts` 一致；**无需向用户确认**是否写文档（见 [.cursor/rules/docs-maintenance.mdc](../../.cursor/rules/docs-maintenance.mdc) 与 [.cursor/rules/packages-ui.mdc](../../.cursor/rules/packages-ui.mdc)）。
+- **注释**：导出类型与组件上，对**非显而易见**的语义、可访问性、与 Uno 预设的耦合等使用 **JSDoc 或简短中文注释**（与 [code-comments.md](../../.opencode/rules/code-comments.md) 一致）；禁止在注释中写入密钥、助记词等敏感内容。
+- **文档同步**：**新增、重命名或删除**对外导出时，**须在同一任务内**更新本文 **「组件清单」** 表，使与 `index.ts` 一致；**无需向用户确认**是否写文档（见 [.opencode/rules/docs-maintenance.md](../../.opencode/rules/docs-maintenance.md) 与 [packages/ui/AGENTS.md](../../packages/ui/AGENTS.md)）。
 
 ## 主题样式规范（Design Tokens）
 

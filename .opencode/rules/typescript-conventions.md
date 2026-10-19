@@ -1,8 +1,3 @@
----
-description: TypeScript 约定：类型出口、enum 使用、paths 别名边界（全仓库）
-alwaysApply: true
----
-
 # TypeScript 约定（全仓）
 
 ## 类型出口（本地 types 目录）
@@ -19,4 +14,3 @@ alwaysApply: true
 
 - 闭集（状态、kind、method 名等）优先用 **字面量联合**（`type Foo = 'a' | 'b'`），或 `as const` + `typeof`，与桥接字符串常量一致、类型可擦除。
 - 若确需使用 `enum`（含 `const enum`）：它同时产生**类型与运行时对象**；注意 **`export type * from` 不会把枚举当作值再导出**，需要在同一 `index.ts` 里另写 **`export { MyEnum } from './…'`**，或从子文件路径直接 `import { MyEnum }`。
-

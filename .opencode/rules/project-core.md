@@ -1,0 +1,9 @@
+# 项目核心上下文
+
+- 正式技术方案见 [docs/engineering/TECHNICAL-SOLUTION.md](../../docs/engineering/TECHNICAL-SOLUTION.md)。涉及架构、接口边界、安全模型时先对照该文档；**四端默认技术栈以 §1.3 与 §4 为准**：插件 **Plasmo + React + UnoCSS + viem + bip39**；Web **Next + viem + TanStack Query**；服务端 **Fastify**；合约 **Foundry**。文档分层索引见 [docs/README.md](../../docs/README.md)。
+- 当前已实现代码主要在 [apps/extension](../../apps/extension)；Web、服务端、合约、shared 包按文档阶段规划落地。
+- 信任边界：解密后的私钥与助记词仅在浏览器扩展内；Web 与服务端不得持久化或传输明文密钥材料。
+- 共享的 API / Bridge 类型目标放在 `packages/shared`（存在后优先从这里引用，避免各端重复定义）。
+- **文件命名（全仓）**：源码文件默认使用 **lowerCamelCase（小驼峰）**；例外（`index.ts`、框架入口、配置/文档文件等）见 [file-naming-lowercamel.md](./file-naming-lowercamel.md)。
+- **TypeScript 约定（全仓）**：类型出口（`export type *`）、`enum` / 字面量联合、路径别名等见 [typescript-conventions.md](./typescript-conventions.md)。
+- 改动保持最小必要范围；命名、导入风格与相邻文件一致。用户未要求时不要新增无关 markdown 文档。

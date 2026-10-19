@@ -4,6 +4,8 @@
 
 **路径迁移（2026-04-05）**：原根下 `docs/TECHNICAL-SOLUTION.md` → [engineering/TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md)；`docs/PRODUCT-FEATURES.md` → [product/PRODUCT-FEATURES.md](./product/PRODUCT-FEATURES.md)；`docs/CURSOR-SETUP.md` → [engineering/cursor/CURSOR-SETUP.md](./engineering/cursor/CURSOR-SETUP.md)。
 
+**迁移（2026-10-19）**：AI 编码配置由 Cursor 迁至 OpenCode——`.cursor/rules/*.mdc` → [`.opencode/rules/*.md`](../.opencode/rules/)（由 [opencode.json](../opencode.json) 的 `instructions` 加载）+ 子项目嵌套 `AGENTS.md`；`.cursorignore` → `opencode.json` 的 `watcher.ignore`；`docs/engineering/cursor/CURSOR-SETUP.md` → [engineering/opencode/OPENCODE-SETUP.md](./engineering/opencode/OPENCODE-SETUP.md)。
+
 ---
 
 ## 1. 产品（需求与功能）
@@ -21,7 +23,7 @@
 
 - [engineering/README.md](./engineering/README.md) — 工程文档入口与 **子项目速查表**。
 - [engineering/TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md) — **四端正式技术方案**（架构、边界、接口、安全）；**§10 现状快照**随代码更新。
-- [engineering/cursor/CURSOR-SETUP.md](./engineering/cursor/CURSOR-SETUP.md) — Cursor / VS Code 配置模板与落地说明。
+- [engineering/opencode/OPENCODE-SETUP.md](./engineering/opencode/OPENCODE-SETUP.md) — OpenCode 项目级配置（`.opencode/rules`、嵌套 `AGENTS.md`）与规则索引；VS Code 推荐设置。
 - [engineering/extension.md](./engineering/extension.md) — 子项目：`apps/extension`；**开发态 `extLog*` 前缀与控制台上下文**见 [TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md) **§4.1「开发态可观测性」**。
 - [engineering/web.md](./engineering/web.md) — 子项目：`apps/web`。
 - [engineering/server.md](./engineering/server.md) — 子项目：`apps/server`。
@@ -62,6 +64,6 @@
 - **推荐在仓库根**：`pnpm install`、`pnpm dev:extension` / `pnpm dev:web` / `pnpm dev:server`、`pnpm build`、`pnpm typecheck`、`pnpm lint`（见根 [README.md](../README.md)）。
 - **CI**：根目录 [.github/workflows/ci.yml](../.github/workflows/ci.yml)；扩展上架：[extension-store-submit.yml](../.github/workflows/extension-store-submit.yml)。
 
-### Cursor 规则
+### OpenCode 规则
 
-扩展业务约定见 `.cursor/rules/web3-wallet-extension.mdc`；**何时更新哪类文档**（含**多轮排障须写入 runbook**）见 `.cursor/rules/docs-maintenance.mdc`。完整配置模板见 [engineering/cursor/CURSOR-SETUP.md](./engineering/cursor/CURSOR-SETUP.md)。
+全仓规则在 `.opencode/rules/*.md`（由根目录 [opencode.json](../opencode.json) 的 `instructions` 加载）；扩展业务约定见 `apps/extension/AGENTS.md`，共享 UI 见 `packages/ui/AGENTS.md`，桥接细则见 `apps/extension/src/extension/utils/bridge/AGENTS.md`。**何时更新哪类文档**（含**多轮排障须写入 runbook**）见 `.opencode/rules/docs-maintenance.md`。完整配置说明见 [engineering/opencode/OPENCODE-SETUP.md](./engineering/opencode/OPENCODE-SETUP.md)。

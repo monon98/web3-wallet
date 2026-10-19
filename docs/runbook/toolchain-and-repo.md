@@ -6,10 +6,10 @@
 
 ---
 
-## Plan 模式无法创建 `.mdc` / 部分点文件
+## AI 编码配置迁移（Cursor → OpenCode）
 
-- **现象**：在 Cursor Plan 模式下无法自动写入规则或 `.cursorignore`。
-- **处理**：关闭 Plan 模式后让 Agent 按 [Cursor 配置说明](../engineering/cursor/CURSOR-SETUP.md) 用编辑器写入；或手动新建文件粘贴模板。
+- **现象**：仓库早期规则与忽略配置面向 Cursor（`.cursor/rules/*.mdc`、`.cursorignore`），OpenCode 不会自动加载。
+- **处理**：已迁移为 OpenCode 配置——全仓规则在 [`.opencode/rules/`](../../.opencode/rules/)（由根目录 [opencode.json](../../opencode.json) 的 `instructions` 加载）；子项目规则改为嵌套 `AGENTS.md`（`apps/extension/`、`packages/ui/`、`.../utils/bridge/`）；检索排除改为 `opencode.json` 的 `watcher.ignore`。说明见 [OpenCode 配置](../engineering/opencode/OPENCODE-SETUP.md)。
 
 ## 扩展包名与路径不一致
 

@@ -1,8 +1,8 @@
-# 仓库说明（供 Agent / Cursor）
+# 仓库说明（供 Agent / OpenCode）
 
-## Cursor 配置
+## OpenCode 配置
 
-完整规则文件、`.cursorignore`、VS Code 推荐扩展等见 **[docs/engineering/cursor/CURSOR-SETUP.md](docs/engineering/cursor/CURSOR-SETUP.md)**。**何时更新哪类文档**见 `.cursor/rules/docs-maintenance.mdc`。推荐在**非 Plan 模式**下让 Agent 按该文档创建文件（纯编辑器写入，无需命令行）；或在 IDE 中手动新建对应路径并粘贴文中代码块。
+项目级配置：根目录 **[opencode.json](opencode.json)**（`instructions` 加载 `.opencode/rules/*.md`、`watcher.ignore` 排除构建产物）与全仓 always-on 规则目录 **[.opencode/rules/](.opencode/rules/)**；子项目细则放各自目录的嵌套 `AGENTS.md`（`apps/extension/`、`packages/ui/`、`apps/extension/src/extension/utils/bridge/`）。说明与规则索引见 **[docs/engineering/opencode/OPENCODE-SETUP.md](docs/engineering/opencode/OPENCODE-SETUP.md)**。**何时更新哪类文档**见 `.opencode/rules/docs-maintenance.md`。
 
 ## 项目是什么
 
@@ -41,4 +41,14 @@
 - 修改范围紧贴任务；勿为「顺手重构」扩大 diff。
 - 密码学材料：助记词/私钥不得进入 Web、服务端代码路径或日志；桥接响应不得包含 `privateKey` / `mnemonic` 明文。
 - 风格与工具链与目标子项目现有配置一致（Prettier、ESLint、Plasmo 路径别名 `~` 等）。
-- **注释与可读性**：重要或晦涩逻辑必补；**模块头、导出 JSDoc、用户要求「从 0 能读懂」时的自动补强**见 [.cursor/rules/code-comments.mdc](.cursor/rules/code-comments.mdc)（与「最小改动」并存：优先写清本次触及的模块与 API）。
+- **注释与可读性**：重要或晦涩逻辑必补；**模块头、导出 JSDoc、用户要求「从 0 能读懂」时的自动补强**见 [.opencode/rules/code-comments.md](.opencode/rules/code-comments.md)（与「最小改动」并存：优先写清本次触及的模块与 API）。
+
+## 关键约定（易错点）
+
+- **文件命名**：`src/` 下业务文件统一 **lowerCamelCase**（`walletUiState.ts`），目录同理；仅 `index.ts`、`background.ts` 等框架约定文件例外。
+- **TS 路径别名**：**禁止**在 `tsconfig.json` 的 `paths` 声明 `@types` / `@types/*` 指向源码目录（与 npm `@types/*` 冲突）。
+- **扩展入口结构**：Plasmo 入口（`background.ts`、`contents/`、`tabs/`）在 `src/` 根；业务逻辑在 `src/extension/`（`utils/`、`web3/`、`background/`、`hooks/`、`ui/`）。
+- **扩展 bridge**：`utils/bridge/` 按功能分子目录（`siteConnect/`、`personalSign/`、`typedData/`、`transaction/`），入口仍在根目录的 `handleBridgeMessage.ts` 与 `constants.ts`。
+- **共享 UI 变更**：修改 `@plugin/ui` 导出时，**须同步更新** `docs/engineering/ui.md`（同一任务内完成），无需再确认。
+- **多轮排障**：若问题经多轮才解决，**必须**在对应 `docs/runbook/*.md` 增补条目（现象、根因、处理步骤）。
+- **环境变量**：首次运行需 `cp .env.example .env` 并填写真实值；`SESSION_SECRET`、`ETHERSCAN_API_KEY`、各合约地址 JSON 均为必填或按需填写。

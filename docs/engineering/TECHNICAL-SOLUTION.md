@@ -5,21 +5,24 @@
 - **文档性质**：本仓库四端系统的**架构与技术事实来源**（Architecture / Technical Specification）。
 - **维护方式**：架构或边界变更时**同步更新本文**；重大变更通过 PR 说明影响面。
 - **与代码的对应**：接口类型以 `packages/shared`（或等价路径）为准；本文描述语义与约束。
-- **规范副本位置**：**本文档**（`docs/engineering/TECHNICAL-SOLUTION.md`）为 Git 中的规范正文；若使用 Cursor 等工具另有计划副本，以 PR 合并后的本文为准。
+- **规范副本位置**：**本文档**（`docs/engineering/TECHNICAL-SOLUTION.md`）为 Git 中的规范正文；若使用 OpenCode / Cursor 等工具另有计划副本，以 PR 合并后的本文为准。
 - **文档目录**：全库文档索引见 [docs/README.md](../README.md)。
 - **产品文档**：整体与能力域 [PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md)；索引与子项目分册
   [PRODUCT-FEATURES.md](../product/PRODUCT-FEATURES.md)（`prd-*.md`）。
 
 ### 修订记录（人工维护）
 
+- **0.43** · 2026-10-19  
+  AI 编码配置由 Cursor 迁移至 OpenCode：全仓规则 `.opencode/rules/*.md`（[opencode.json](../../opencode.json) 的 `instructions` 加载）、子项目规则为嵌套 `AGENTS.md`（`apps/extension/`、`packages/ui/`、`apps/extension/src/extension/utils/bridge/`）；`.cursorignore` 检索排除改为 `watcher.ignore`；[OPENCODE-SETUP.md](./opencode/OPENCODE-SETUP.md) 与各文档引用同步
+
 - **0.42** · 2026-04-23  
-  扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[extension-bridge-modules.mdc](../../.cursor/rules/extension-bridge-modules.mdc)、[web3-wallet-extension.mdc](../../.cursor/rules/web3-wallet-extension.mdc) 同步
+  扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
   扩展：**EIP-1193** 增补 **`eth_sign`**（转挂起路径同 `personal_sign`）、**`eth_signTransaction`**（仅返回已签名 RLP）、**`eth_sendRawTransaction`**（内置 RPC 广播已签名交易）；**`eth_sendTransaction`** 与全局 **`evmTxSubmitMode`**（侧栏「DApp 交易提交方式」）已在代码中完备；顶层 bridge **`signTransaction`** / **`sendTransaction`** 映射至上述 EIP 方法；§4.1 / §10、[extension.md](./extension.md)「EIP-1193 当前能力」同步
 - **0.40** · 2026-04-20  
   扩展：链上 HD / 批量地址派生自 **`utils/vault`** 迁至 **`extension/web3/`**（`base/hd/derive`、`evm/addressGenerator`、`tvm/tvmAddressGenerator`、`btc/*`）；数量上限集中在 **`extension/constants/walletLimits.ts`**（`~/constants`）；**`vault`** 仅保留加密存储与解密签名（`record`、`tvmRecord`、`crypto`、`signing`）；TVM 持久化类型并入 **`types/vault.ts`**；[extension.md](./extension.md) 增补「vault 与 web3 目录边界」
 - **0.39** · 2026-04-15  
-  扩展：**`apps/extension/src` 下源码与类型文件**统一为 **camelCase** 命名（含 `contents/`、`tabs/`、`extension/**`）；`asserts` 目录更名为 **`assets`**；`extension-log` → **`extensionLog`**、`wallet-ui` 包路径 → **`walletUi`**；ESLint `unicorn/filename-case` 覆盖 `src/**/*`（见 `.cursor/rules/extension-filename-camelcase.mdc`）；文档路径同步
+  扩展：**`apps/extension/src` 下源码与类型文件**统一为 **camelCase** 命名（含 `contents/`、`tabs/`、`extension/**`）；`asserts` 目录更名为 **`assets`**；`extension-log` → **`extensionLog`**、`wallet-ui` 包路径 → **`walletUi`**；ESLint `unicorn/filename-case` 覆盖 `src/**/*`（见 `apps/extension/AGENTS.md`）；文档路径同步
 - **0.38** · 2026-04-15  
   扩展：业务源码收拢至 **`src/extension/`**（`hooks/`、`ui/`、`types/`、`utils/`、`web3/`、`background/`）；Plasmo 入口仍在 **`src/`** 根；`tsconfig` 别名 `~lib/*`、`~/components/*`、`~/hooks/*`、`~/types`、`~web3`；[extension.md](./extension.md) 同步
 - **0.37** · 2026-04-15  
@@ -44,8 +47,8 @@
   合约：新增 [`BalanceBatchReader`](../../packages/contracts/src/evm/BalanceBatchReader.sol)（多地址原生 + 已知 ERC-20 一次 `eth_call`）；服务端 `POST /api/v1/evm/balance-reader/query` + `EVM_BALANCE_READER_ADDRESSES_JSON`；`GET /api/v1/evm/status` 增加 `balanceReaderConfigured`。§5.2、§5.4、[evm-batch-balances.md](./evm-batch-balances.md) §5 同步
 - **0.26** · 2026-04-06  
   扩展：**EIP-712** `eth_signTypedData` / `eth_signTypedData_v3` / `eth_signTypedData_v4`（[`signTypedData`](../../apps/extension/src/tabs/signTypedData.tsx) 审批弹窗 + viem `signTypedData`）；与 **连接挂起**、**`personal_sign` 挂起** **三方互斥**。§4.1「当前代码基线」、§10、[extension.md](./extension.md) 同步
-- **0.25** · 2026-04-06  
-  - **Tron DApp（插件、分期实现）**：链上编解码与 RPC 交互选型 **`tronweb`（npm `tronweb`）**；页面注入目标与 **TronLink / TIP-1193 风格 `request`** 互操作（**非** `window.ethereum`）。§1.3、§4.1、§9、§10 同步  
+- **0.25** · 2026-04-06
+  - **Tron DApp（插件、分期实现）**：链上编解码与 RPC 交互选型 **`tronweb`（npm `tronweb`）**；页面注入目标与 **TronLink / TIP-1193 风格 `request`** 互操作（**非** `window.ethereum`）。§1.3、§4.1、§9、§10 同步
   - 服务端：默认监听 `127.0.0.1`；`disableRequestLogging` + `onResponse` 单行 access；Pino 双写控制台与 `logs/server.log`；§5.4 增补 `SERVER_*` / `LOG_*`
 - **0.24** · 2026-04-05  
   扩展：钱包 UI 状态**仅**读写 **`web3_wallet_ui_v1`**，**不**再读取或迁移旧键 `web3_wallet_demo_v1`
@@ -54,7 +57,7 @@
 - **0.22** · 2026-04-05  
   `@plugin/shared`：新增 [`evm/builtin-demo-chains`](../../packages/shared/src/evm/builtin-demo-chains.ts)（扩展内置链 ID/名称/主币符号，与 Web `wallet-demo` 共用）；扩展 EIP-1193 增加只读 **`eth_blockNumber`**；`wallet_*` / 只读 RPC 校验链 ID 改用 `isDemoWalletBuiltinEvmChainIdHex`
 - **0.21** · 2026-04-05  
-  工程文档与规则：[ui.md](./ui.md) 补充 `@plugin/ui` **组件清单**与开发约定；新增 [.cursor/rules/packages-ui.mdc](../../.cursor/rules/packages-ui.mdc)，[docs-maintenance.mdc](../../.cursor/rules/docs-maintenance.mdc) 约定 UI 包导出变更须**同任务**更新 `ui.md`、**不必**向用户确认是否写文档
+  工程文档与规则：[ui.md](./ui.md) 补充 `@plugin/ui` **组件清单**与开发约定；新增 [packages/ui/AGENTS.md](../../packages/ui/AGENTS.md)、[.opencode/rules/docs-maintenance.md](../../.opencode/rules/docs-maintenance.md)，约定 UI 包导出变更须**同任务**更新 `ui.md`、**不必**向用户确认是否写文档
 - **0.20** · 2026-04-05  
   扩展：侧栏 **「已连接的网站」** 管理（列表、`revokeSiteSessionOrigin` / `revokeAllSiteAuthSessions`）；钱包 UI 状态存储键（后随 0.23 更名为 `WALLET_UI_STATE_STORAGE_KEY`）供侧栏监听 `chrome.storage.local`
 - **0.19** · 2026-04-05  
@@ -75,8 +78,8 @@
   文档：`docs/` 分层（product / engineering / runbook）；本文与 [§10](#10-附录现状基线仓库快照)、§4.1「当前代码基线」同步仓库快照；正文路径迁至 `docs/engineering/`
 - **0.11** · 2026-04-05  
   服务端 EVM：Etherscan V2 **批量原生余额**（`POST .../native-balances`，最多 20 地址）与 **多地址 ERC-20 持仓**（`POST .../address-token-balances`，单地址 PRO 端点串行 + `ETHERSCAN_PRO_MIN_INTERVAL_MS`）；契约见 `packages/shared` `evmExplorer`
-- **0.10** · 2026-04-04  
-  - 产品：插件**离线钱包**、**EIP-1193** 通用 DApp 调用、**多钱包档案**；[PRODUCT-FEATURES.md](../product/PRODUCT-FEATURES.md) 增 §A0；§1.1/§3.1/§4.1/§9 同步  
+- **0.10** · 2026-04-04
+  - 产品：插件**离线钱包**、**EIP-1193** 通用 DApp 调用、**多钱包档案**；[PRODUCT-FEATURES.md](../product/PRODUCT-FEATURES.md) 增 §A0；§1.1/§3.1/§4.1/§9 同步
   - 服务端 EVM：**托管 RPC 代理**（`POST /api/v1/evm/rpc`）+ **Etherscan API V2** 原生余额查询（`GET /api/v1/evm/explorer/native-balance`）；环境变量见 §5.4
 - **0.9** · 2026-04-04  
   初始化 `apps/web`（Next 16 + viem + TanStack Query）、`apps/server`（Fastify 骨架）；合约包补充 README；根脚本与 CI 覆盖 web/server 构建
@@ -96,7 +99,6 @@
   拆分为正式技术方案结构，补充接口与安全细则
 - **0.1** · —  
   初版四端计划与阶段划分
-
 
 ---
 
@@ -120,11 +122,11 @@
 
 ### 1.3 技术前提
 
-- **链类型与产品范围**  
-  - **EVM** 为插件与合约主线基线（`viem`、BIP44 `m/44'/60'/...`）。  
-  - 产品扩展要求 **Tron** 与 **BTC** 相关能力：**Web 与服务端**优先（含**批量地址信息查询**等，见 [PRODUCT-FEATURES.md](../product/PRODUCT-FEATURES.md)）。  
-  - **智能合约**仅面向可编程链（当前为 **EVM**；**Tron 合约**若需要另开 ADR），**不包含 BTC**。  
-  - **浏览器插件**对 **Tron / BTC** 的钱包与签名能力**后续阶段**落地，不与 EVM MVP 强绑定。  
+- **链类型与产品范围**
+  - **EVM** 为插件与合约主线基线（`viem`、BIP44 `m/44'/60'/...`）。
+  - 产品扩展要求 **Tron** 与 **BTC** 相关能力：**Web 与服务端**优先（含**批量地址信息查询**等，见 [PRODUCT-FEATURES.md](../product/PRODUCT-FEATURES.md)）。
+  - **智能合约**仅面向可编程链（当前为 **EVM**；**Tron 合约**若需要另开 ADR），**不包含 BTC**。
+  - **浏览器插件**对 **Tron / BTC** 的钱包与签名能力**后续阶段**落地，不与 EVM MVP 强绑定。
   - **Tron DApp 钱包形态（插件）**：链上构造、签名与广播相关能力以 **`tronweb`** 为**唯一指定** TypeScript/JavaScript SDK；向页面暴露 **`tronLink.request` 等生态约定注入面**（与 TronLink、TIP-1193 风格 provider 互操作为目标），与 EVM 的 EIP-1193（`window.ethereum`）**分轨**实现。
 - **浏览器插件栈（已定）**：**Plasmo**（**Chrome Manifest V3**）、**React 19**、**TypeScript**、**UnoCSS**、**viem**、**bip39**；代码风格与质量 **ESLint**、**Prettier**、**stylelint**（CSS）；路径别名 `~` → `src/`。实现以 [apps/extension/package.json](../../apps/extension/package.json) 为准，重大升级在 §0 留痕。
 - **Web 栈（已定）**：**Next.js（App Router）+ TypeScript + React**；EVM 侧链交互以 **viem** 为主；**Tron / BTC** 数据以调用**服务端 API**为主，避免在浏览器分散持有各链密钥与 RPC 配置。服务端状态与缓存 **TanStack Query**。
@@ -271,13 +273,13 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 实现入口：[extensionLog.ts](../../apps/extension/src/extension/utils/extensionLog.ts)（`extLogDebug` / `extLogInfo` / `extLogWarn`）。**生产构建**（`NODE_ENV === 'production'`）下静默。
 
-安全边界（禁止记录口令、助记词、私钥、待签原文等）与 [web3-security.mdc](../../.cursor/rules/web3-security.mdc)、[extension.md](./extension.md) 一致。
+安全边界（禁止记录口令、助记词、私钥、待签原文等）与 [web3-security.md](../../.opencode/rules/web3-security.md)、[extension.md](./extension.md) 一致。
 
-| 控制台上下文                     | 如何打开                                             |
-| -------------------------------- | ---------------------------------------------------- |
-| **Service Worker**（background） | `chrome://extensions` → 扩展 → **Service worker** |
-| **隔离内容脚本**                 | 页面 **DevTools** → 选扩展 **content script** 上下文 |
-| **MAIN 世界 inpage**             | 页面 DevTools → 扩展 **inpage** / 对应 frame         |
+| 控制台上下文                     | 如何打开                                                  |
+| -------------------------------- | --------------------------------------------------------- |
+| **Service Worker**（background） | `chrome://extensions` → 扩展 → **Service worker**         |
+| **隔离内容脚本**                 | 页面 **DevTools** → 选扩展 **content script** 上下文      |
+| **MAIN 世界 inpage**             | 页面 DevTools → 扩展 **inpage** / 对应 frame              |
 | **扩展页 UI**（侧栏、popup 等）  | 扩展页 **右键检查** 或 `chrome-extension://…` 的 DevTools |
 
 **Service Worker 典型前缀（节选）**（分号分隔便于检索）：
@@ -361,10 +363,10 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
   - `GET /api/v1/evm/explorer/native-balance?address=&chainId=`：经 **Etherscan V2** 查单地址原生币余额（[balance](https://docs.etherscan.io/api-reference/endpoint/balance)）。
   - `POST /api/v1/evm/explorer/native-balances`：JSON `{ chainId, addresses }`，最多 **20** 个地址，一次调用对应 Etherscan 逗号分隔 `balance`（同上文档）。
   - `POST /api/v1/evm/explorer/address-token-balances`：JSON `{ chainId, addresses, page?, offset? }`，每地址调用 [addresstokenbalance](https://docs.etherscan.io/api-reference/endpoint/addresstokenbalance)（**PRO**、供应商侧约 **2 次/秒**）；服务端**串行**并可用 `ETHERSCAN_PRO_MIN_INTERVAL_MS` 节流。
-  - `POST /api/v1/evm/balance-reader/query`：JSON `{ chainId, addresses, tokenAddresses? }`，经 **`SERVER_RPC_URL`** 对已部署的 **`BalanceBatchReader.getBalances`** 做 **`eth_call`**。  
-    - 返回 **`nativeBalances`**：各地址 **`address.balance`**（链原生币 wei）。  
-    - **`tokenAddresses`**：ERC-20 列表（默认 `[]` 则仅返回原生）；代币格仅 **`ok` + `balanceRaw`**（失败时 `ok=false` 且 `balanceRaw` 为 `0`）。  
-    - Reader 地址：**`EVM_BALANCE_READER_ADDRESSES_JSON`**；**限额**：代币 **≤10**；仅原生时地址 **≤300**；带代币时地址 **≤ min(200, ⌊1000/代币数⌋)**（见 `@plugin/shared` `evmBalanceReaderQueryRequestSchema` 与常量）。  
+  - `POST /api/v1/evm/balance-reader/query`：JSON `{ chainId, addresses, tokenAddresses? }`，经 **`SERVER_RPC_URL`** 对已部署的 **`BalanceBatchReader.getBalances`** 做 **`eth_call`**。
+    - 返回 **`nativeBalances`**：各地址 **`address.balance`**（链原生币 wei）。
+    - **`tokenAddresses`**：ERC-20 列表（默认 `[]` 则仅返回原生）；代币格仅 **`ok` + `balanceRaw`**（失败时 `ok=false` 且 `balanceRaw` 为 `0`）。
+    - Reader 地址：**`EVM_BALANCE_READER_ADDRESSES_JSON`**；**限额**：代币 **≤10**；仅原生时地址 **≤300**；带代币时地址 **≤ min(200, ⌊1000/代币数⌋)**（见 `@plugin/shared` `evmBalanceReaderQueryRequestSchema` 与常量）。
     - 合约另提供原子化 **`getNativeBalances` / `getErc20Balances` / `getAllowances(token,spender,holders)`**（当前 HTTP 未封装 allowance，可自行 `eth_call`）。
   - `POST /api/v1/evm/batch-sender/build`：JSON（`kind: 'eth' | 'erc20_transferFrom'`），返回 `{ to, data, valueWei }` 供扩展/前端签名并广播（非托管）。合约地址由 `EVM_BATCH_SENDER_ADDRESSES_JSON` 提供；ERC-20 模式下用户需先对合约 `approve` 足够额度，随后调用 `BatchSender.batchSendErc20TransferFrom`。
   - **链上**：[`BatchCollector`](../../packages/contracts/src/evm/BatchCollector.sol) 提供 **`collectErc20Batch`**（多源地址 `approve` 后归集 ERC-20 至同一 `to`）；**原生 ETH** 无法在一笔调用中从多个 EOA 无签名批量「拉取」，与 ERC-20 `transferFrom` 不同（见合约 NatSpec）。当前仓库**未**提供对应 HTTP `build` 路由，可按 `batch-sender` 方式扩展。
@@ -377,24 +379,24 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 ### 5.4 配置项（环境变量示例）
 
-| 变量                                          | 用途                                                                                                                                                                                  |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_CHAIN_ID`                        | Web 默认链                                                                                                                                                                            |
-| `NEXT_PUBLIC_RPC_URL`                         | （可选）浏览器侧只读；慎用，多数只读走服务端                                                                                                                                          |
-| `SERVER_PORT` / `SERVER_HOST`                 | Fastify 监听；默认 `8787`、`127.0.0.1`（仅本机）；需局域网监听时用 `0.0.0.0`                                                                                                          |
-| `SERVER_SWAGGER`                              | （可选）`0` / `false` 时，**即使非 production** 也不注册 OpenAPI / Swagger UI；默认在非 production 启用 `GET /documentation`、`GET /documentation/json`                               |
-| `LOG_FILE` / `LOG_TO_FILE`                    | 服务端文件日志（每行 JSON）；默认相对运行目录 `logs/server.log`；`LOG_TO_FILE=0` 关闭                                                                                                 |
-| `LOG_LEVEL` / `LOG_PRETTY`                    | Pino 级别；`LOG_PRETTY` 控制开发态控制台是否 pino-pretty                                                                                                                              |
-| `SERVER_RPC_URL`                              | 服务端 EVM JSON-RPC（`POST /api/v1/evm/rpc` 上游）                                                                                                                                    |
-| `ETHERSCAN_API_KEY`                           | [Etherscan API V2](https://docs.etherscan.io/introduction) 密钥（勿提交仓库；仅服务端使用）                                                                                           |
-| `ETHERSCAN_API_URL`                           | （可选）V2 API 根地址，默认 `https://api.etherscan.io/v2/api`                                                                                                                         |
-| `ETHERSCAN_PRO_MIN_INTERVAL_MS`               | （可选）多地址 `addresstokenbalance` 串行间隔（毫秒），默认 `550`                                                                                                                     |
+| 变量                                          | 用途                                                                                                                                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_CHAIN_ID`                        | Web 默认链                                                                                                                                                                         |
+| `NEXT_PUBLIC_RPC_URL`                         | （可选）浏览器侧只读；慎用，多数只读走服务端                                                                                                                                       |
+| `SERVER_PORT` / `SERVER_HOST`                 | Fastify 监听；默认 `8787`、`127.0.0.1`（仅本机）；需局域网监听时用 `0.0.0.0`                                                                                                       |
+| `SERVER_SWAGGER`                              | （可选）`0` / `false` 时，**即使非 production** 也不注册 OpenAPI / Swagger UI；默认在非 production 启用 `GET /documentation`、`GET /documentation/json`                            |
+| `LOG_FILE` / `LOG_TO_FILE`                    | 服务端文件日志（每行 JSON）；默认相对运行目录 `logs/server.log`；`LOG_TO_FILE=0` 关闭                                                                                              |
+| `LOG_LEVEL` / `LOG_PRETTY`                    | Pino 级别；`LOG_PRETTY` 控制开发态控制台是否 pino-pretty                                                                                                                           |
+| `SERVER_RPC_URL`                              | 服务端 EVM JSON-RPC（`POST /api/v1/evm/rpc` 上游）                                                                                                                                 |
+| `ETHERSCAN_API_KEY`                           | [Etherscan API V2](https://docs.etherscan.io/introduction) 密钥（勿提交仓库；仅服务端使用）                                                                                        |
+| `ETHERSCAN_API_URL`                           | （可选）V2 API 根地址，默认 `https://api.etherscan.io/v2/api`                                                                                                                      |
+| `ETHERSCAN_PRO_MIN_INTERVAL_MS`               | （可选）多地址 `addresstokenbalance` 串行间隔（毫秒），默认 `550`                                                                                                                  |
 | `EVM_BALANCE_READER_ADDRESSES_JSON`           | （可选）`BalanceBatchReader` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/balance-reader/query` 及 `SERVER_RPC_URL` 目标链一致 |
 | `EVM_BATCH_SENDER_ADDRESSES_JSON`             | （可选）`BatchSender` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/batch-sender/build` 的 `chainId` 一致                       |
-| `SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY` | Tron HTTP API（示例命名，以实际 SDK 为准）                                                                                                                                            |
-| `SERVER_BTC_ESPLORA_URL` 等                   | BTC 索引/节点只读或广播端点                                                                                                                                                           |
-| `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                               |
-| `SESSION_SECRET` / OAuth 等                   | 会话与第三方登录（若使用）                                                                                                                                                            |
+| `SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY` | Tron HTTP API（示例命名，以实际 SDK 为准）                                                                                                                                         |
+| `SERVER_BTC_ESPLORA_URL` 等                   | BTC 索引/节点只读或广播端点                                                                                                                                                        |
+| `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
+| `SESSION_SECRET` / OAuth 等                   | 会话与第三方登录（若使用）                                                                                                                                                         |
 
 ---
 
