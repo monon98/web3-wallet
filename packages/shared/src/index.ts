@@ -6,4 +6,5 @@ export * from './http/auth.js';
 export * from './http/evmBatchSender.js';
 export * from './http/evmBalanceReader.js';
 export * from './http/evmExplorer.js';
+export * from './http/tronExplorer.js';
 export * from './http/tx.js';

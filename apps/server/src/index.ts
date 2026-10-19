@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import { getEtherscanApiKey, getServerRpcUrl } from './config/chain.js';
 import { createRootLogger } from './config/logger.js';
 import evmGatewayRoutes from './routes/evmGateway.js';
+import tronGatewayRoutes from './routes/tronGateway.js';
 import {
   isSwaggerDevEnabled,
   registerSwaggerGenerator,
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
 
   await app.register(cors, { origin: true });
   await app.register(evmGatewayRoutes);
+  await app.register(tronGatewayRoutes);
 
   app.get('/health', { schema: healthSchema }, async () => ({
     ok: true as const

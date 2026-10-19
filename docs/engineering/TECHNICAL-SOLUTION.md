@@ -18,6 +18,9 @@
 - **0.44** · 2026-10-19  
   文档：产品 / 工程文档与代码现状同步——扩展 **TVM 账户管理**、**交易类 EIP-1193**（四类审批互斥与 `evmTxSubmitMode`）、**多链地址生成器**（EVM/TVM/BTC，CSV / JSON 导出）；Web 联调页（`wallet-demo` → `/wallet`、`/gateway`）；服务端 `batch-sender/build`、`status`、`meta`；`@plugin/shared` 契约与错误码清单；§4.1「当前代码基线」、§10 与 [extension.md](./extension.md)、[shared.md](./shared.md) 等同步
 
+- **0.45** · 2026-10-19  
+  服务端：**Tron 网关骨架**（数据源 **TronGrid**）——`GET /api/v1/tron/status`、`GET /api/v1/tron/explorer/account`、`POST /api/v1/tron/explorer/accounts`（按地址**串行**请求 + `SERVER_TRON_MIN_INTERVAL_MS` 节流，单次 ≤ 20 地址）；`SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY`；`@plugin/shared` 新增 `http/tronExplorer`；§5.2、§5.4、§10 与 [server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[shared.md](./shared.md) 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -374,6 +377,10 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
   - `POST /api/v1/evm/batch-sender/build`：JSON（`kind: 'eth' | 'erc20_transferFrom'`），返回 `{ to, data, valueWei }` 供扩展/前端签名并广播（非托管）。合约地址由 `EVM_BATCH_SENDER_ADDRESSES_JSON` 提供；ERC-20 模式下用户需先对合约 `approve` 足够额度，随后调用 `BatchSender.batchSendErc20TransferFrom`。
   - **链上**：[`BatchCollector`](../../packages/contracts/src/evm/BatchCollector.sol) 提供 **`collectErc20Batch`**（多源地址 `approve` 后归集 ERC-20 至同一 `to`）；**原生 ETH** 无法在一笔调用中从多个 EOA 无签名批量「拉取」，与 ERC-20 `transferFrom` 不同（见合约 NatSpec）。当前仓库**未**提供对应 HTTP `build` 路由，可按 `batch-sender` 方式扩展。
   - `GET /api/v1/evm/status`：是否已配置 RPC / Etherscan / **至少一条合法 balance reader 映射**（布尔字段 `balanceReaderConfigured`，不含密钥与具体地址）。
+  - **Tron 链网关（已实现骨架，数据源 TronGrid）**：
+    - `GET /api/v1/tron/explorer/account?address=T...`：单地址 **TRX 余额（sun）** 与 **TRC-20 持仓（原始数量）**（[TronGrid accounts](https://developers.tron.network/reference/getaccount)）；服务端校验 **base58check** 地址。
+    - `POST /api/v1/tron/explorer/accounts`：JSON `{ addresses }`，最多 **20** 个地址；服务端**按地址串行**调用 TronGrid 并以 `SERVER_TRON_MIN_INTERVAL_MS`（默认 250）节流；单地址上游失败（如公共额度 429）以条目内 `error` 返回（不中断整批）。
+    - `GET /api/v1/tron/status`：Tron API Key 是否配置与批量串行间隔（`apiKeyConfigured`、`minIntervalMs`；不含密钥）。
 
 ### 5.3 服务端 ↔ 链
 
@@ -396,7 +403,8 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `ETHERSCAN_PRO_MIN_INTERVAL_MS`               | （可选）多地址 `addresstokenbalance` 串行间隔（毫秒），默认 `550`                                                                                                                  |
 | `EVM_BALANCE_READER_ADDRESSES_JSON`           | （可选）`BalanceBatchReader` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/balance-reader/query` 及 `SERVER_RPC_URL` 目标链一致 |
 | `EVM_BATCH_SENDER_ADDRESSES_JSON`             | （可选）`BatchSender` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/batch-sender/build` 的 `chainId` 一致                       |
-| `SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY` | Tron HTTP API（示例命名，以实际 SDK 为准）                                                                                                                                         |
+| `SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY` | [TronGrid](https://developers.tron.network/) 根地址（默认 `https://api.trongrid.io`）与 API Key（勿提交仓库；仅服务端使用）                                                        |
+| `SERVER_TRON_MIN_INTERVAL_MS`                 | （可选）Tron 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                            |
 | `SERVER_BTC_ESPLORA_URL` 等                   | BTC 索引/节点只读或广播端点                                                                                                                                                        |
 | `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
 | `SESSION_SECRET` / OAuth 等                   | 会话与第三方登录（若使用）                                                                                                                                                         |
@@ -496,9 +504,9 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 [apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 EVM 联调。
 
-[apps/server](../../apps/server/)（Fastify，**EVM JSON-RPC 代理** + **Etherscan V2** + **`BalanceBatchReader` 链上批量读** `POST /api/v1/evm/balance-reader/query` + **`BatchSender` calldata 构造** `POST /api/v1/evm/batch-sender/build` + `GET /api/v1/evm/status`，见 §5.2）。
+[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、Etherscan V2、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）与 **Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`），见 §5.2。
 
-**Auth / 业务 API / Tron·BTC 网关** 仍待迭代。
+**Auth / 业务 API / BTC 网关** 仍待迭代。
 
 ### 合约
 
@@ -506,7 +514,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### 共享
 
-[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tx` / `auth`）与错误码（`errors/`）。
+[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tronExplorer` / `tx` / `auth`）与错误码（`errors/`）。
 
 ### 根目录
 

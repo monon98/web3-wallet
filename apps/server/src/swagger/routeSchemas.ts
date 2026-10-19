@@ -106,3 +106,38 @@ export const evmStatusSchema = {
     }
   }
 } as const;
+
+export const tronExplorerAccountSchema = {
+  tags: ['tron-explorer'],
+  summary: '单地址账户余额（TRX + TRC-20，TronGrid）',
+  querystring: {
+    type: 'object',
+    required: ['address'],
+    properties: {
+      address: { type: 'string', description: 'Tron base58 address (T...)' }
+    }
+  }
+} as const;
+
+export const tronExplorerAccountsSchema = {
+  tags: ['tron-explorer'],
+  summary: '批量账户余额（TronGrid，服务端串行 + 节流）',
+  body: {
+    type: 'object',
+    description: '见 @plugin/shared tronExplorerAccountsRequestSchema'
+  }
+} as const;
+
+export const tronStatusSchema = {
+  tags: ['tron-meta'],
+  summary: 'Tron 网关配置探测（API Key / 串行间隔）',
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        apiKeyConfigured: { type: 'boolean' },
+        minIntervalMs: { type: 'number' }
+      }
+    }
+  }
+} as const;

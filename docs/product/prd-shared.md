@@ -16,5 +16,5 @@
 
 ## 2. 已实现与缺口（产品视角）
 
-- **已有**：Bridge 信封与解析；内置 EVM 链清单（`WALLET_BUILTIN_EVM_CHAINS` 与校验函数，扩展 / Web 联调页共用）；HTTP 契约——EVM explorer（单 / 批量原生余额、多地址 ERC-20 持仓）、`balance-reader` 查询、`batch-sender` 构造、`tx` 广播请求与 Auth（SIWE challenge / verify / me，服务端未实现）；错误码（应用级 / EIP-1193）。
+- **已有**：Bridge 信封与解析；内置 EVM 链清单（`WALLET_BUILTIN_EVM_CHAINS` 与校验函数，扩展 / Web 联调页共用）；HTTP 契约——EVM explorer（单 / 批量原生余额、多地址 ERC-20 持仓）、`balance-reader` 查询、`batch-sender` 构造、Tron explorer（批量账户请求）、`tx` 广播请求与 Auth（SIWE challenge / verify / me，服务端未实现）；错误码（应用级 / EIP-1193）。
 - **仍缺**：随 Bridge 与业务 API 扩展持续补全类型与校验（相对本章 §1）。

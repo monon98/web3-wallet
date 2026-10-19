@@ -17,5 +17,5 @@
 
 ## 2. 已实现与缺口（产品视角）
 
-- **已有**：EVM **RPC 代理**（`POST /api/v1/evm/rpc`，方法白名单、批量上限）、**Etherscan V2** 路由（单 / 批量原生余额、多地址 ERC-20 持仓）、链上批量 **`POST /api/v1/evm/balance-reader/query`**（`BalanceBatchReader`）、**`POST /api/v1/evm/batch-sender/build`**（构造 calldata，非托管）、探测 **`GET /api/v1/evm/status`** 与 **`GET /api/v1/meta`**；开发态 OpenAPI / Swagger（技术方案 §5.2）。
-- **仍缺**：**Tron/BTC ChainGateway**（按 `chainFamily` 路由；Tron 数据源如 TronGrid）、统一 Auth（SIWE 契约已在 `@plugin/shared` 预留）、交易广播与统一批量多链 API、限流/缓存策略（相对本章 §1、整体 §A5）。
+- **已有**：EVM **RPC 代理**（`POST /api/v1/evm/rpc`，方法白名单、批量上限）、**Etherscan V2** 路由（单 / 批量原生余额、多地址 ERC-20 持仓）、链上批量 **`POST /api/v1/evm/balance-reader/query`**（`BalanceBatchReader`）、**`POST /api/v1/evm/batch-sender/build`**（构造 calldata，非托管）、探测 **`GET /api/v1/evm/status`** 与 **`GET /api/v1/meta`**；**Tron** 账户余额（**TronGrid**：status、单 / 批量 TRX + TRC-20 原始数量）；开发态 OpenAPI / Swagger（技术方案 §5.2）。
+- **仍缺**：**BTC ChainGateway**（按 `chainFamily` 路由，数据源如 Esplora）、统一 Auth（SIWE 契约已在 `@plugin/shared` 预留）、交易广播与统一批量多链 API、限流 / 缓存策略（相对本章 §1、整体 §A5）。
