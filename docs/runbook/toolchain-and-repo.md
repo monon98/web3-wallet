@@ -15,3 +15,9 @@
 
 - **现象**：根目录脚本使用 `pnpm --filter web3-wallet`，而物理路径为 `apps/extension`。
 - **处理**：以 `apps/extension/package.json` 的 `name` 为准；文档见 [工程文档 · 扩展](../engineering/extension.md)。
+
+## Windows：仓库改名 / 移动后 node_modules 工具链失效（Junction 指向旧路径）
+
+- **现象**：重命名或移动仓库目录后，`pnpm typecheck` / `lint` / `prettier` 等全部报 `Cannot find module ...\node_modules\<包>\...`（如 `apps/server/node_modules/typescript`），即使 `D:\Code\<旧目录>` 已不存在或已改名。
+- **根因**：pnpm 在 Windows 以**绝对路径**创建 Junction（`node_modules` 顶层包链接与各 workspace 包内链接），目录改名后链接不随移动更新；`Get-Item <链接> | Format-List LinkType,Target` 可见 Target 仍是旧绝对路径。
+- **处理**：在仓库根执行 `$env:CI='true'; pnpm install --frozen-lockfile` 重新链接（store 缺包时会重新下载）。**勿省略 `CI=true`**：pnpm 检测到模块目录不一致时会弹出 “modules directories will be removed and reinstalled from scratch. Proceed?” 交互确认，后台 / 自动化执行会被卡住或中止。
