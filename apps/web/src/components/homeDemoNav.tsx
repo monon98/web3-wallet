@@ -19,6 +19,13 @@ export function HomeDemoNav() {
         variant="outline"
         size="md"
         className="w-full sm:w-auto"
+        onClick={() => router.push('/account')}>
+        登录与交易广播
+      </UiButton>
+      <UiButton
+        variant="outline"
+        size="md"
+        className="w-full sm:w-auto"
         onClick={() => router.push('/wallet')}>
         钱包连接（EIP-6963）
       </UiButton>
