@@ -10,7 +10,7 @@ import type { SegmentedControlOption } from '@plugin/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-type GatewayTab = 'evm' | 'tron' | 'btc';
+type BalanceTab = 'evm' | 'tron' | 'btc';
 
 const TAB_OPTIONS: SegmentedControlOption[] = [
   { value: 'evm', label: 'EVM' },
@@ -19,12 +19,12 @@ const TAB_OPTIONS: SegmentedControlOption[] = [
 ];
 
 /**
- * 多链余额查询页：EVM / Tron / BTC 分链展示（路由保留 `/gateway`）。
+ * 多链余额查询页：EVM / Tron / BTC 分链展示。
  * 各链区块自持有表单与查询状态；切换 tab 用 CSS 隐藏，避免丢失已查结果。
  */
-export default function GatewayPage() {
+export default function BalancesPage() {
   const apiBase = useMemo(() => getPublicApiBaseUrl(), []);
-  const [tab, setTab] = useState<GatewayTab>('evm');
+  const [tab, setTab] = useState<BalanceTab>('evm');
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 leading-relaxed text-neutral-900 dark:text-neutral-100 sm:px-6 lg:px-8">
@@ -70,7 +70,7 @@ export default function GatewayPage() {
         <SegmentedControl
           options={TAB_OPTIONS}
           value={tab}
-          onChange={(next) => setTab(next as GatewayTab)}
+          onChange={(next) => setTab(next as BalanceTab)}
           size="md"
         />
       </div>

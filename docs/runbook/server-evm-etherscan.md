@@ -15,7 +15,7 @@
 
 ## Etherscan 不可达 / 服务端未加载 `.env`（原生余额查询失败）
 
-- **现象**：`/gateway` 的 EVM 查询失败；`GET /api/v1/evm/status` 显示 `etherscan: false`；服务端日志出现 `fetch failed: Connect Timeout Error (attempted address: api.etherscan.io:443)` 或 `etherscan_not_configured`。
+- **现象**：`/balances`（原 `/gateway`）的 EVM 查询失败；`GET /api/v1/evm/status` 显示 `etherscan: false`；服务端日志出现 `fetch failed: Connect Timeout Error (attempted address: api.etherscan.io:443)` 或 `etherscan_not_configured`。
 - **根因**：
   1. 早期服务端不会自动读取 `.env`，`ETHERSCAN_API_KEY` 只在启动进程的环境变量中生效；
   2. 部分网络无法直连 `api.etherscan.io`（连接超时），与密钥是否有效无关。

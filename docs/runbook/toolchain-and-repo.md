@@ -24,7 +24,7 @@
 
 ## Web 引用 `@plugin/ui` 时共享组件样式缺失（UnoCSS 未扫描 packages/ui）
 
-- **现象**：`/gateway` 等引用 `@plugin/ui` 的 Web 页面中，`PanelSection` 没有内边距、`SelectField` / `TextArea` 没有边框、`UiButton` 只剩文字；DevTools 中元素 class 正常，但 computed `padding` 为 `0`。
+- **现象**：`/balances`（原 `/gateway`）等引用 `@plugin/ui` 的 Web 页面中，`PanelSection` 没有内边距、`SelectField` / `TextArea` 没有边框、`UiButton` 只剩文字；DevTools 中元素 class 正常，但 computed `padding` 为 `0`。
 - **根因**：扫描路径写在 `apps/web/postcss.config.mjs` 的 `@unocss/postcss` 插件选项 `content` 中；当前 `@unocss/postcss@66.6.7` 只读取 `apps/web/uno.config.ts` 的 `content.filesystem`，**插件选项被忽略**。`apps/web/src` 自身的类仍能生成，而 `../../packages/ui/src` 的类从未进入 CSS，表现为只有共享组件缺样式。
 - **处理**：
   1. 在 `apps/web/uno.config.ts` 增加 `content.filesystem`（`./src/**/*.{html,js,ts,jsx,tsx}` 与 `../../packages/ui/src/**/*.{ts,tsx}`），并移除 postcss 插件里的 `content`。

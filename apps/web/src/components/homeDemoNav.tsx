@@ -12,7 +12,7 @@ export function HomeDemoNav() {
         variant="primary"
         size="md"
         className="w-full sm:w-auto"
-        onClick={() => router.push('/gateway')}>
+        onClick={() => router.push('/balances')}>
         多链余额查询
       </UiButton>
       <UiButton
