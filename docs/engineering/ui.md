@@ -1,10 +1,10 @@
 # 子项目：共享 UI（`packages/ui`，`@plugin/ui`）
 
 - **职责**：扩展与 Web **共用的轻量 React 组件**（UnoCSS 原子类，无 CSS-in-JS 运行时）。
-- **消费方**：`apps/extension`（Plasmo）、`apps/web`（Next）；两端均需启用 **UnoCSS**，样式类名才会生效。扩展侧 `uno.config.ts` 的 **`content.filesystem` 须包含** `../../packages/ui/src/**/*.{ts,tsx}`，与 Web 的 PostCSS `content` 同理。
+- **消费方**：`apps/extension`（Plasmo）、`apps/web`（Next）；两端均需启用 **UnoCSS**，样式类名才会生效。扩展侧 `uno.config.ts` 的 **`content.filesystem` 须包含** `../../packages/ui/src/**/*.{ts,tsx}`，与 Web 的 `uno.config.ts` `content.filesystem` 同理。
 - **React 版本**：`peerDependencies` 为 **React ^19**；扩展、Web、`@plugin/ui` 开发与类型以 **19.2.x** 对齐（见各包 `package.json`）。
-- **Next.js**：`apps/web/next.config.ts` 已配置 `transpilePackages: ['@plugin/ui']`，以编译工作区 TS 源码。`apps/web/postcss.config.mjs` 中 `@unocss/postcss` 的 **`content` 须包含** `../../packages/ui/src/**/*.{ts,tsx}`（与 `./src/**` 并列）；否则 Web 端引用 `@plugin/ui` 时，组件内原子类不会进入 Uno 生成，**样式会缺失**。
-- **暗色与 Web**：`apps/web/uno.config.ts` 使用 **`presetWind3({ dark: 'media' })`**，使 `dark:` 与 `globals.css` 的 **`prefers-color-scheme: dark`** 一致；扩展侧仍为默认（`dark:` 依赖 `.dark` 祖先，侧栏浅色底时通常不触发）。`PanelSection`、表单控件、`UiButton` 的 `outline`、`FieldHint` 等含 **`dark:`** 适配，便于 Web 在系统暗色下可读。
+- **Next.js**：`apps/web/next.config.ts` 已配置 `transpilePackages: ['@plugin/ui']`，以编译工作区 TS 源码。`apps/web/uno.config.ts` 的 **`content.filesystem` 须包含** `../../packages/ui/src/**/*.{ts,tsx}`（与 `./src/**` 并列；当前 `@unocss/postcss` 从 Uno 配置读取扫描路径，postcss 插件选项中的 `content` 不生效）；否则 Web 端引用 `@plugin/ui` 时，组件内原子类不会进入 Uno 生成，**样式会缺失**。
+- **暗色与 Web**：`apps/web/uno.config.ts` 使用 **`presetWind3({ dark: 'class' })`**，`dark:` 依赖 **`.dark` 祖先**（与 `globals.css` 的 `.dark` 主题 token 配套）；Web 当前未提供主题切换，系统暗色不会自动生效。扩展侧同样为默认 `class` 模式（侧栏浅色底时通常不触发）。`PanelSection`、表单控件、`UiButton` 的 `outline`、`FieldHint` 等含 **`dark:`** 适配。
 - **入口**：实现放在 `packages/ui/src/*.tsx`；共享 **类型** 放在 [`packages/ui/src/types/`](../../packages/ui/src/types/)（与组件 **同 stem** 的 `.ts`，如 `button.tsx` ↔ `types/button.ts`），[`types/index.ts`](../../packages/ui/src/types/index.ts) 以 **`export type * from './…'`** 聚合。包根 [`index.ts`](../../packages/ui/src/index.ts)：**`export type * from './types'`** + 各组件 **`export { … } from './…'`**（新增组件须登记实现与类型两处）。
 
 ## 组件清单（与 `index.ts` 同步维护）
