@@ -1,3 +1,5 @@
+import './loadEnv.js';
+
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import { bridgeMethodSchema } from '@plugin/shared';

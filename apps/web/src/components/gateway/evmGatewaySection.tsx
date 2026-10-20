@@ -2,6 +2,7 @@ import {
   apiErrorMessage,
   CHAIN_OPTIONS,
   DEFAULT_ADDRESSES,
+  evmErrorMessage,
   parseAddressLines,
   shortAddress,
   tokenAmountDisplay,
@@ -164,35 +165,42 @@ export function EvmGatewaySection({ apiBase }: Props) {
         {nativeMutation.isError ? (
           <ErrorNotice
             className="mt-3"
-            message={(nativeMutation.error as Error).message}
+            message={evmErrorMessage((nativeMutation.error as Error).message)}
           />
         ) : null}
 
         {nativeParsed ? (
-          <TableShell className="mt-4">
-            <thead>
-              <tr className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-2)]">
-                <th className="px-3 py-2 font-medium">地址</th>
-                <th className="px-3 py-2 font-medium">余额（ETH 单位）</th>
-              </tr>
-            </thead>
-            <tbody>
-              {nativeParsed.balances.map((row) => (
-                <tr
-                  key={row.address}
-                  className="border-b border-[var(--ui-border)] last:border-0">
-                  <td
-                    className="px-3 py-2 font-mono text-xs"
-                    title={row.address}>
-                    {shortAddress(row.address)}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {formatEther(BigInt(row.balanceWei))}
-                  </td>
+          <div className="mt-4">
+            <TableShell>
+              <thead>
+                <tr className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-2)]">
+                  <th className="px-3 py-2 font-medium">地址</th>
+                  <th className="px-3 py-2 font-medium">余额（ETH 单位）</th>
                 </tr>
-              ))}
-            </tbody>
-          </TableShell>
+              </thead>
+              <tbody>
+                {nativeParsed.balances.map((row) => (
+                  <tr
+                    key={row.address}
+                    className="border-b border-[var(--ui-border)] last:border-0">
+                    <td
+                      className="px-3 py-2 font-mono text-xs"
+                      title={row.address}>
+                      {shortAddress(row.address)}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {formatEther(BigInt(row.balanceWei))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </TableShell>
+            {nativeParsed.source === 'rpc' ? (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                本次余额来自服务端 RPC（Etherscan 未配置或不可达）。
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         <RawResult raw={nativeRaw} preClassName="max-h-64" />
@@ -237,13 +245,16 @@ export function EvmGatewaySection({ apiBase }: Props) {
         {tokenMutation.isError ? (
           <ErrorNotice
             className="mt-3"
-            message={(tokenMutation.error as Error).message}
+            message={evmErrorMessage((tokenMutation.error as Error).message)}
           />
         ) : null}
 
         <FieldHint className="mt-2">
           表格中「数量」由接口返回的 quantity÷divisor
           换算，仅作浏览；精确记账请以原始 JSON 为准。
+        </FieldHint>
+        <FieldHint className="mt-1">
+          ERC-20 持仓依赖 Etherscan；不可达时原生余额可走服务端 RPC 兜底。
         </FieldHint>
 
         {tokenParsed ? (

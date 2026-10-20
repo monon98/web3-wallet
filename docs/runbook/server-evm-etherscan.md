@@ -13,6 +13,19 @@
 - **现象**：多地址 ERC-20 持仓查询易触发供应商约 **2 次/秒** 限制。
 - **处理**：服务端对 PRO 端点**串行**调用，并可通过环境变量 `ETHERSCAN_PRO_MIN_INTERVAL_MS`（默认约 `550`）拉大间隔；详见 [TECHNICAL-SOLUTION.md §5.2、§5.4](../engineering/TECHNICAL-SOLUTION.md)。
 
+## Etherscan 不可达 / 服务端未加载 `.env`（原生余额查询失败）
+
+- **现象**：`/gateway` 的 EVM 查询失败；`GET /api/v1/evm/status` 显示 `etherscan: false`；服务端日志出现 `fetch failed: Connect Timeout Error (attempted address: api.etherscan.io:443)` 或 `etherscan_not_configured`。
+- **根因**：
+  1. 早期服务端不会自动读取 `.env`，`ETHERSCAN_API_KEY` 只在启动进程的环境变量中生效；
+  2. 部分网络无法直连 `api.etherscan.io`（连接超时），与密钥是否有效无关。
+- **处理**：
+  1. 重启服务端，确认已加载 `.env`（cwd `.env` 或仓库根 `.env`；`GET /api/v1/evm/status` 应为 `etherscan: true`，或按需只保留 RPC）；
+  2. 配置可用的 `SERVER_RPC_URL`，且与所选 `chainId` 一致（服务端用 `eth_chainId` 校验）。原生余额会优先走 RPC，不再等待 Etherscan；
+  3. ERC-20 持仓仍依赖 Etherscan：需要可用的网络 / 代理，或改用 `balance-reader` / 自建索引；首次网络失败后服务端在 60s 内直接返回 `etherscan_unreachable`；
+  4. 验证：`POST /api/v1/evm/explorer/native-balances` 返回 `source: "rpc"`；`GET /api/v1/evm/explorer/native-balance` 同理。
+- **易错点**：不要把 `SERVER_RPC_URL` 填成 `https://api.etherscan.io/v2/api`——Etherscan REST API 不是 JSON-RPC，会导致 RPC 兜底与 `/api/v1/evm/rpc` 均失败。
+
 ## JSON-RPC 代理安全
 
 - **现象**：开放任意 JSON-RPC 方法会带来滥用风险。

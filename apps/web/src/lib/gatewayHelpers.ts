@@ -21,6 +21,8 @@ export type NativeBalancesResponse = {
     address: `0x${string}`;
     balanceWei: string;
   }>;
+  /** 本次实际数据源：rpc = Etherscan 未配置 / 不可达时走服务端 RPC 兜底 */
+  source?: 'etherscan' | 'rpc';
 };
 
 export type TokenBalancesResponse = {
@@ -157,6 +159,24 @@ export function apiErrorMessage(body: string, status: number): string {
     }
   }
   return trimmed || `HTTP ${status}`;
+}
+
+/**
+ * EVM 网关错误码 → 面向用户的中文提示；服务端返回短错误码时比原文更易定位。
+ */
+export function evmErrorMessage(message: string): string {
+  switch (message) {
+    case 'etherscan_unreachable':
+      return 'Etherscan 不可达（网络 / 代理限制）；ERC-20 持仓暂无法查询，原生余额可使用服务端 RPC 兜底。';
+    case 'rpc_chain_mismatch':
+      return '服务端 RPC 与所选链不一致；请切换链，或把 SERVER_RPC_URL 配置为所选链的节点。';
+    case 'rpc_unreachable':
+      return '服务端 RPC 不可达；请检查 SERVER_RPC_URL。';
+    case 'rpc_not_configured':
+      return '服务端未配置 SERVER_RPC_URL，无法使用 RPC 兜底。';
+    default:
+      return message;
+  }
 }
 
 /** 演示用：将 quantity/divisor 转为可读十进制（极大数可能不精确）。 */

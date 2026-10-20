@@ -30,6 +30,9 @@
 - **0.48** · 2026-10-20  
   Web：`/gateway` 增加 **BTC 面板**（数据源 **Esplora**）——单地址 / 批量地址余额（已确认 / 内存池净变化 / 交易数，单次 ≤ 20；批量按服务端串行）；页面按 **EVM / Tron / BTC** 拆分为 `src/components/gateway/*` 并改为分段切换（保留已查结果）；统一错误提示（从 JSON 错误体提取 message）与原始 JSON 折叠展示；修复 Web **UnoCSS 未扫描 `@plugin/ui`** 导致共享组件样式缺失；[web.md](./web.md)、[prd-web.md](../product/prd-web.md)、[ui.md](./ui.md)、§10 同步
 
+- **0.49** · 2026-10-20  
+  服务端：启动时按 **cwd `.env` → 仓库根 `.env`** 加载环境变量（Node `process.loadEnvFile`，已存在的进程变量优先）；EVM **原生余额**在配置 `SERVER_RPC_URL` 时优先走 RPC（`eth_chainId` 校验链一致），RPC 不可用再回退 Etherscan，响应新增 `source: "rpc" | "etherscan"`；Etherscan 网络失败后 60s 冷却，ERC-20 持仓返回 `etherscan_unreachable`；Web 显示 RPC 兜底来源与可读错误提示；§5.2、§5.4、[server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[web.md](./web.md)、[server-evm-etherscan.md](../runbook/server-evm-etherscan.md) 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -375,9 +378,9 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 - 业务资源：`/api/v1/...` 按领域再分
 - **EVM 链网关（已实现骨架）**：
   - `POST /api/v1/evm/rpc`：向 `SERVER_RPC_URL` 转发 JSON-RPC（**方法白名单**，含常见只读与 `eth_sendRawTransaction`；批量请求最多 10 条）。
-  - `GET /api/v1/evm/explorer/native-balance?address=&chainId=`：经 **Etherscan V2** 查单地址原生币余额（[balance](https://docs.etherscan.io/api-reference/endpoint/balance)）。
-  - `POST /api/v1/evm/explorer/native-balances`：JSON `{ chainId, addresses }`，最多 **20** 个地址，一次调用对应 Etherscan 逗号分隔 `balance`（同上文档）。
-  - `POST /api/v1/evm/explorer/address-token-balances`：JSON `{ chainId, addresses, page?, offset? }`，每地址调用 [addresstokenbalance](https://docs.etherscan.io/api-reference/endpoint/addresstokenbalance)（**PRO**、供应商侧约 **2 次/秒**）；服务端**串行**并可用 `ETHERSCAN_PRO_MIN_INTERVAL_MS` 节流。
+  - `GET /api/v1/evm/explorer/native-balance?address=&chainId=`：单地址原生币余额。配置 `SERVER_RPC_URL` 时**优先**经 RPC `eth_getBalance`（先校验 `eth_chainId` 与请求一致）；否则 / RPC 不可用时回退 **Etherscan V2**（[balance](https://docs.etherscan.io/api-reference/endpoint/balance)）。响应含 `source: "rpc" | "etherscan"`。
+  - `POST /api/v1/evm/explorer/native-balances`：JSON `{ chainId, addresses }`，最多 **20** 个地址；数据源选择同上（RPC 批量走单次 JSON-RPC batch，Etherscan 走逗号分隔 `balance`），响应含 `source`。
+  - `POST /api/v1/evm/explorer/address-token-balances`：JSON `{ chainId, addresses, page?, offset? }`，每地址调用 [addresstokenbalance](https://docs.etherscan.io/api-reference/endpoint/addresstokenbalance)（**PRO**、供应商侧约 **2 次/秒**）；服务端**串行**并可用 `ETHERSCAN_PRO_MIN_INTERVAL_MS` 节流。该能力**仅依赖 Etherscan**；网络不可达时返回 `etherscan_unreachable`，并在 60s 内短路重试。
   - `POST /api/v1/evm/balance-reader/query`：JSON `{ chainId, addresses, tokenAddresses? }`，经 **`SERVER_RPC_URL`** 对已部署的 **`BalanceBatchReader.getBalances`** 做 **`eth_call`**。
     - 返回 **`nativeBalances`**：各地址 **`address.balance`**（链原生币 wei）。
     - **`tokenAddresses`**：ERC-20 列表（默认 `[]` 则仅返回原生）；代币格仅 **`ok` + `balanceRaw`**（失败时 `ok=false` 且 `balanceRaw` 为 `0`）。
@@ -410,7 +413,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `SERVER_SWAGGER`                              | （可选）`0` / `false` 时，**即使非 production** 也不注册 OpenAPI / Swagger UI；默认在非 production 启用 `GET /documentation`、`GET /documentation/json`                            |
 | `LOG_FILE` / `LOG_TO_FILE`                    | 服务端文件日志（每行 JSON）；默认相对运行目录 `logs/server.log`；`LOG_TO_FILE=0` 关闭                                                                                              |
 | `LOG_LEVEL` / `LOG_PRETTY`                    | Pino 级别；`LOG_PRETTY` 控制开发态控制台是否 pino-pretty                                                                                                                           |
-| `SERVER_RPC_URL`                              | 服务端 EVM JSON-RPC（`POST /api/v1/evm/rpc` 上游）                                                                                                                                 |
+| `SERVER_RPC_URL`                              | 服务端 EVM JSON-RPC（`POST /api/v1/evm/rpc` 上游）；配置后也作为**原生余额**首选数据源（`eth_chainId` 必须与请求链一致，否则回退 Etherscan）                                       |
 | `ETHERSCAN_API_KEY`                           | [Etherscan API V2](https://docs.etherscan.io/introduction) 密钥（勿提交仓库；仅服务端使用）                                                                                        |
 | `ETHERSCAN_API_URL`                           | （可选）V2 API 根地址，默认 `https://api.etherscan.io/v2/api`                                                                                                                      |
 | `ETHERSCAN_PRO_MIN_INTERVAL_MS`               | （可选）多地址 `addresstokenbalance` 串行间隔（毫秒），默认 `550`                                                                                                                  |
@@ -422,6 +425,8 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `SERVER_BTC_MIN_INTERVAL_MS`                  | （可选）BTC 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                             |
 | `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
 | `SESSION_SECRET` / OAuth 等                   | 会话与第三方登录（若使用）                                                                                                                                                         |
+
+服务端启动时自动加载 `.env`：优先当前工作目录，其次仓库根（`pnpm dev:server` 的 cwd 为 `apps/server`）；使用 Node 内置 `process.loadEnvFile`，**已存在的进程环境变量优先**，不覆盖 CI / 生产注入。`.env` 勿提交仓库。
 
 ---
 
@@ -518,7 +523,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 [apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 **EVM / Tron / BTC** 联调。
 
-[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、Etherscan V2、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
+[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、原生余额 RPC / Etherscan、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
 
 **Auth / 业务 API** 仍待迭代。
 

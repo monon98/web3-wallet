@@ -20,9 +20,12 @@ import {
 import {
   EtherscanError,
   getAddressTokenHoldingsBatchEtherscan,
-  getNativeBalanceEtherscan,
   getNativeBalancesBatchEtherscan
 } from '../evm/etherscanV2.js';
+import {
+  getNativeBalancesRpc,
+  NativeBalanceRpcError
+} from '../evm/nativeBalanceRpc.js';
 import {
   forwardToRpc,
   RpcForwardError,
@@ -37,6 +40,81 @@ import {
   evmRpcForwardSchema,
   evmStatusSchema
 } from '../swagger/routeSchemas.js';
+
+type NativeBalanceRow = {
+  chainId: number;
+  address: string;
+  balanceWei: string;
+};
+
+type NativeBalanceSource = 'etherscan' | 'rpc';
+
+/** Etherscan 网络失败后的冷却时间，避免每个请求都等 10s 连接超时。 */
+const ETHERSCAN_COOLDOWN_MS = 60_000;
+let etherscanCooldownUntil = 0;
+
+function isNetworkFailure(e: unknown): boolean {
+  if (!(e instanceof Error)) {
+    return false;
+  }
+  return (
+    e.name === 'TimeoutError' ||
+    e.name === 'AbortError' ||
+    e.message.includes('fetch failed')
+  );
+}
+
+function markEtherscanUnavailable(): void {
+  etherscanCooldownUntil = Date.now() + ETHERSCAN_COOLDOWN_MS;
+}
+
+/**
+ * 原生余额数据源选择：配置了 `SERVER_RPC_URL` 时优先走 RPC（链 ID 必须一致），
+ * RPC 不可用再回退 Etherscan；未配置 RPC 时保持原来的 Etherscan 行为。
+ * 返回值中的 `source` 供 Web 提示数据来源。
+ */
+async function loadNativeBalances(params: {
+  chainId: number;
+  addresses: string[];
+}): Promise<{ rows: NativeBalanceRow[]; source: NativeBalanceSource }> {
+  const rpcConfigured = Boolean(getServerRpcUrl());
+  const etherscanConfigured = Boolean(getEtherscanApiKey());
+
+  if (rpcConfigured) {
+    try {
+      const rows = await getNativeBalancesRpc(params);
+      return { rows, source: 'rpc' };
+    } catch (e) {
+      // 地址 / 参数错误无需再试 Etherscan
+      if (e instanceof NativeBalanceRpcError && e.statusCode === 400) {
+        throw e;
+      }
+      if (!etherscanConfigured || Date.now() < etherscanCooldownUntil) {
+        throw e;
+      }
+
+      try {
+        const rows = await getNativeBalancesBatchEtherscan(params);
+        return { rows, source: 'etherscan' };
+      } catch (etherscanError) {
+        // RPC 链不一致时优先返回可操作的原因（切换链或调整 SERVER_RPC_URL）
+        if (
+          e instanceof NativeBalanceRpcError &&
+          e.message === 'rpc_chain_mismatch'
+        ) {
+          throw e;
+        }
+        if (isNetworkFailure(etherscanError)) {
+          markEtherscanUnavailable();
+        }
+        throw etherscanError;
+      }
+    }
+  }
+
+  const rows = await getNativeBalancesBatchEtherscan(params);
+  return { rows, source: 'etherscan' };
+}
 
 const evmGatewayRoutes: FastifyPluginAsync = async (app) => {
   app.get(
@@ -61,17 +139,40 @@ const evmGatewayRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const chainId = Number.parseInt(chainIdRaw, 10);
+      if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+        return reply.code(400).send({ error: 'invalid_chain_id' });
+      }
+
       try {
         request.log.debug({ chainId }, 'native_balance_request');
-        const result = await getNativeBalanceEtherscan({ chainId, address });
-        return result;
+        const { rows, source } = await loadNativeBalances({
+          chainId,
+          addresses: [address]
+        });
+        const result = rows[0];
+        if (!result) {
+          throw new Error('empty_native_balance_result');
+        }
+        return { ...result, source };
       } catch (e) {
+        if (e instanceof NativeBalanceRpcError) {
+          request.log.warn(
+            { chainId, statusCode: e.statusCode, code: e.message },
+            'native_balance_rpc_error'
+          );
+          return reply.code(e.statusCode).send({ error: e.message });
+        }
         if (e instanceof EtherscanError) {
           request.log.warn(
             { chainId, statusCode: e.statusCode, err: e },
             'etherscan_client_error'
           );
           return reply.code(e.statusCode).send({ error: e.message });
+        }
+        if (isNetworkFailure(e)) {
+          markEtherscanUnavailable();
+          request.log.warn({ err: e }, 'etherscan_native_balance_unreachable');
+          return reply.code(502).send({ error: 'etherscan_unreachable' });
         }
         request.log.error({ err: e }, 'etherscan_native_balance');
         return reply.code(500).send({ error: 'internal_error' });
@@ -103,18 +204,33 @@ const evmGatewayRoutes: FastifyPluginAsync = async (app) => {
           { chainId, count: addresses.length },
           'native_balances_batch'
         );
-        const result = await getNativeBalancesBatchEtherscan({
+        const { rows, source } = await loadNativeBalances({
           chainId,
           addresses
         });
-        return { chainId, balances: result };
+        return { chainId, balances: rows, source };
       } catch (e) {
+        if (e instanceof NativeBalanceRpcError) {
+          request.log.warn(
+            { chainId, statusCode: e.statusCode, code: e.message },
+            'native_balances_rpc_error'
+          );
+          return reply.code(e.statusCode).send({ error: e.message });
+        }
         if (e instanceof EtherscanError) {
           request.log.warn(
             { chainId, statusCode: e.statusCode, err: e },
             'etherscan_native_balances_batch'
           );
           return reply.code(e.statusCode).send({ error: e.message });
+        }
+        if (isNetworkFailure(e)) {
+          markEtherscanUnavailable();
+          request.log.warn(
+            { err: e },
+            'etherscan_native_balances_batch_unreachable'
+          );
+          return reply.code(502).send({ error: 'etherscan_unreachable' });
         }
         request.log.error({ err: e }, 'etherscan_native_balances_batch');
         return reply.code(500).send({ error: 'internal_error' });
@@ -240,6 +356,12 @@ const evmGatewayRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const { chainId, addresses, page, offset } = parsed.data;
+      // Etherscan 刚发生过网络失败时直接返回，避免每个地址都等连接超时
+      if (getEtherscanApiKey() && Date.now() < etherscanCooldownUntil) {
+        request.log.warn({ chainId }, 'etherscan_token_balances_cooldown');
+        return reply.code(502).send({ error: 'etherscan_unreachable' });
+      }
+
       try {
         request.log.debug(
           { chainId, count: addresses.length, page, offset },
@@ -254,11 +376,22 @@ const evmGatewayRoutes: FastifyPluginAsync = async (app) => {
         return { chainId, page, offset, items };
       } catch (e) {
         if (e instanceof EtherscanError) {
+          if (getEtherscanApiKey() && e.statusCode === 429) {
+            markEtherscanUnavailable();
+          }
           request.log.warn(
             { chainId, statusCode: e.statusCode, err: e },
             'etherscan_address_token_balances'
           );
           return reply.code(e.statusCode).send({ error: e.message });
+        }
+        if (isNetworkFailure(e)) {
+          markEtherscanUnavailable();
+          request.log.warn(
+            { err: e },
+            'etherscan_address_token_balances_unreachable'
+          );
+          return reply.code(502).send({ error: 'etherscan_unreachable' });
         }
         request.log.error({ err: e }, 'etherscan_address_token_balances');
         return reply.code(500).send({ error: 'internal_error' });
