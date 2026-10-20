@@ -23,6 +23,7 @@
 
 - [engineering/README.md](./engineering/README.md) — 工程文档入口与 **子项目速查表**。
 - [engineering/TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md) — **四端正式技术方案**（架构、边界、接口、安全）；**§10 现状快照**随代码更新。
+- [engineering/BACKLOG.md](./engineering/BACKLOG.md) — **待实现事项与优先级**（P0–P4；执行时同步状态与文档）。
 - [engineering/opencode/OPENCODE-SETUP.md](./engineering/opencode/OPENCODE-SETUP.md) — OpenCode 项目级配置（`.opencode/rules`、嵌套 `AGENTS.md`）与规则索引；VS Code 推荐设置。
 - [engineering/extension.md](./engineering/extension.md) — 子项目：`apps/extension`；**开发态 `extLog*` 前缀与控制台上下文**见 [TECHNICAL-SOLUTION.md](./engineering/TECHNICAL-SOLUTION.md) **§4.1「开发态可观测性」**。
 - [engineering/web.md](./engineering/web.md) — 子项目：`apps/web`。

@@ -39,6 +39,9 @@
 - **0.51** · 2026-10-20  
   Web：多链余额查询页路由由 `/gateway` 改为 **`/balances`**（[`src/app/balances/page.tsx`](../../apps/web/src/app/balances/page.tsx)）；首页入口与文档链接同步；旧 `/gateway` 通过 [next.config.ts](../../apps/web/next.config.ts) 308 重定向到 `/balances`
 
+- **0.52** · 2026-10-20  
+  服务端 / Web：打通 **钱包登录 → 签名 → 服务端广播** MVP——新增 `POST /api/v1/auth/challenge`、`POST /api/v1/auth/verify`、`GET /api/v1/auth/me`、`POST /api/v1/auth/logout`（一次性 challenge 5 分钟、Bearer 会话 24 小时、进程内存存储）；新增 `POST /api/v1/tx/broadcast`（Bearer 会话 + raw tx 发送方 / chainId / RPC 链校验，当前仅 EVM）；Web 新增 `/account` 联调页（EIP-6963 / `window.ethereum` → challenge → `personal_sign` → 会话 → `eth_signTransaction` → 服务端广播）；`@plugin/shared` 补齐 auth / tx 请求与响应 schema；新增 [BACKLOG.md](./BACKLOG.md) 记录 P0–P4 待实现事项；§5.2、§5.4、§6、§10 与 [server.md](./server.md)、[web.md](./web.md)、[shared.md](./shared.md)、[prd-server.md](../product/prd-server.md)、[prd-web.md](../product/prd-web.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -374,14 +377,18 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 ### 5.2 Web ↔ 服务端（HTTP）
 
-建议资源划分（示例）：
+以下为资源语义；已实现路径以 `/api/v1/*` 为准，规划项单独标注。
 
-- `POST /auth/challenge` → 返回待签消息或 SIWE 文本
-- `POST /auth/verify` → 提交地址 + 签名 → 建立会话
-- `GET /me` → 当前用户与绑定地址
-- `POST /tx/broadcast` → 提交已签名序列化交易（服务端校验链 ID 与 nonce 策略后广播）
-- `POST /addresses/batch`（或等价路径）→ 批量查询多地址链上摘要（EVM / Tron / BTC 等，字段与限额见 PRD）
-- 业务资源：`/api/v1/...` 按领域再分
+- **Auth（MVP 已实现）**：
+  - `POST /api/v1/auth/challenge` → 服务端生成一次性 SIWE 风格消息（5 分钟过期）。
+  - `POST /api/v1/auth/verify` → 提交地址 + `personal_sign` 签名 → 签发 **Bearer 会话**（24 小时）。
+  - `GET /api/v1/auth/me` → 当前会话地址 / chainId / 过期时间。
+  - `POST /api/v1/auth/logout` → 注销 Bearer 会话（幂等）。
+  - 当前 challenge / session 存于**进程内存**，服务重启失效；Web 用 `sessionStorage` 保存 Bearer token。生产化需持久化、限流、HttpOnly Cookie / CSRF 与 CORS 收紧（见 [BACKLOG.md](./BACKLOG.md) P4-5）。
+- **交易广播（MVP 已实现，EVM only）**：
+  - `POST /api/v1/tx/broadcast` → JSON `{ chainId, signedTransaction }`；要求 Bearer 会话；校验 raw tx 的 `chainId`、签名者地址与 `SERVER_RPC_URL` 的 `eth_chainId`，再调用 `eth_sendRawTransaction`。
+- **批量地址查询（规划）**：`POST /addresses/batch`（或等价路径）→ 批量查询多地址链上摘要（EVM / Tron / BTC 等，字段与限额见 PRD）。
+- 业务资源：`/api/v1/...` 按领域再分。
 - **EVM 链网关（已实现骨架）**：
   - `POST /api/v1/evm/rpc`：向 `SERVER_RPC_URL` 转发 JSON-RPC（**方法白名单**，含常见只读与 `eth_sendRawTransaction`；批量请求最多 10 条）。
   - `GET /api/v1/evm/explorer/native-balance?address=&chainId=`：单地址原生币余额。配置 `SERVER_RPC_URL` 时**优先**经 RPC `eth_getBalance`（先校验 `eth_chainId` 与请求一致）；否则 / RPC 不可用时回退 **Etherscan V2**（[balance](https://docs.etherscan.io/api-reference/endpoint/balance)）。响应含 `source: "rpc" | "etherscan"`。
@@ -430,7 +437,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `SERVER_BTC_API_URL`                          | （可选）[Esplora](https://github.com/Blockstream/esplora/blob/master/API.md) API 根地址，默认 `https://blockstream.info/api`（只读；无需 Key）                                     |
 | `SERVER_BTC_MIN_INTERVAL_MS`                  | （可选）BTC 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                             |
 | `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
-| `SESSION_SECRET` / OAuth 等                   | 会话与第三方登录（若使用）                                                                                                                                                         |
+| `SESSION_SECRET` / OAuth 等                   | **预留**：持久化 / Cookie 会话或第三方登录时使用；当前 Bearer token 为进程内随机 token，不读取该变量                                                                               |
 
 服务端启动时自动加载 `.env`：优先当前工作目录，其次仓库根（`pnpm dev:server` 的 cwd 为 `apps/server`）；使用 Node 内置 `process.loadEnvFile`，**已存在的进程环境变量优先**，不覆盖 CI / 生产注入。`.env` 勿提交仓库。
 
@@ -445,6 +452,8 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | 扩展权限过大        | `host_permissions` 最小化；按需申请                              |
 | 钓鱼签名            | 签名 UI 展示解码后的合约、函数、金额、收款地址；高危操作二次确认 |
 | 服务端误用私钥      | 架构上服务端不持有用户私钥；代码审查与密钥管理仅针对服务账户     |
+
+> **当前登录 MVP 的折中**：Web 将 Bearer token 放在 `sessionStorage`，便于本地跨端口联调（Web `3000` ↔ API `8787`）；服务端会话为进程内存。生产前应迁移 HttpOnly Cookie + CSRF、持久化会话、限流并收紧 CORS（见 [BACKLOG.md](./BACKLOG.md) P4-5）。
 
 ---
 
@@ -476,11 +485,11 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### 阶段 2：Web（约 2–3 周）
 
-- 连接插件、登录绑定地址、调用服务端 API、完成一次「签名 → 服务端广播」闭环
+- 连接插件、登录绑定地址、调用服务端 API、完成一次「签名 → 服务端广播」闭环（MVP 已在 `/account` 落地；正式业务门户待迭代）
 
 ### 阶段 3：服务端（约 2–4 周）
 
-- 基于 **Fastify** 实现 Auth、ChainGateway、业务 API 骨架；测试网配置
+- 基于 **Fastify** 实现 Auth、ChainGateway、业务 API 骨架；测试网配置（Auth + tx 广播 MVP 已落地；限流 / 持久化 / 统一批量 API 待补）
 
 ### 阶段 4：合约（持续）
 
@@ -504,6 +513,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 - **EVM 目标链**：`CHAIN_ID`、测试网/主网及 **RPC 供应商**（或自建节点）
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
 - **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
+- **Auth 会话生产化**：当前为内存 Bearer + Web `sessionStorage`；需决定 Redis / DB 持久化、HttpOnly Cookie / CSRF、多实例共享与限流策略
 - **批量地址查询**：单次最大条数、QPS、缓存、鉴权与是否商业化
 - **ERC-4337（账户抽象）— 待办调研**：评估 **UserOperation** / **Bundler** / **Paymaster** / 智能合约账户与 **EntryPoint** 在本项目中的适用场景。  
   重点：**资金分散与归集**（尤其原生币无法像 ERC-20 那样单合约 `transferFrom` 多源拉取的前提下，AA 能否改善批量体验、代付 gas、与插件/服务端托管边界如何划分）。  
@@ -527,11 +537,11 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询**（EVM / Tron / BTC）。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询**（EVM / Tron / BTC）、[`/account`](../../apps/web/src/app/account/page.tsx) **登录与交易广播**（challenge → `personal_sign` → Bearer 会话 → `eth_signTransaction` → 服务端广播）。
 
-[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
+[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，Bearer 会话）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
 
-**Auth / 业务 API** 仍待迭代。
+**Auth 与 tx 广播已具备 MVP**；业务 API、统一批量 API、限流 / 缓存 / 生产化会话仍待迭代（见 [BACKLOG.md](./BACKLOG.md)）。
 
 ### 合约
 
@@ -539,7 +549,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### 共享
 
-[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tronExplorer` / `tx` / `auth`）与错误码（`errors/`）。
+[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tronExplorer` / `btcExplorer` / `auth` / `tx`，含请求与响应 schema）与错误码（`errors/`）。
 
 ### 根目录
 

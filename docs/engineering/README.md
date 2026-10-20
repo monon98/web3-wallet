@@ -5,6 +5,7 @@
 | 文档 / 目录                                                | 说明                                                                                        |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | [TECHNICAL-SOLUTION.md](./TECHNICAL-SOLUTION.md)           | **四端正式技术方案**（信任边界、§4 各端、§5 接口、§9 开放决策）；变更架构时更新 §0 修订记录 |
+| [BACKLOG.md](./BACKLOG.md)                                 | **待实现事项与优先级**（P0–P4）；完成一项后同步状态、修订记录与子项目文档                   |
 | [evm-batch-balances.md](./evm-batch-balances.md)           | EVM 多地址原生币/代币批量查询：Multicall、Etherscan 与本仓服务端对照                        |
 | [opencode/OPENCODE-SETUP.md](./opencode/OPENCODE-SETUP.md) | OpenCode / VS Code 项目级配置（`.opencode/rules`、嵌套 `AGENTS.md`）与规则索引              |
 | 下文「子项目速查」                                         | 各 `apps/*`、`packages/*` 一页入口，细节仍以技术方案正文为准                                |
