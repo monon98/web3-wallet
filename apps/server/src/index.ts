@@ -7,9 +7,11 @@ import Fastify from 'fastify';
 
 import { getEtherscanApiKey, getServerRpcUrl } from './config/chain.js';
 import { createRootLogger } from './config/logger.js';
+import authRoutes from './routes/auth.js';
 import btcGatewayRoutes from './routes/btcGateway.js';
 import evmGatewayRoutes from './routes/evmGateway.js';
 import tronGatewayRoutes from './routes/tronGateway.js';
+import txRoutes from './routes/tx.js';
 import {
   isSwaggerDevEnabled,
   registerSwaggerGenerator,
@@ -53,10 +55,16 @@ async function main(): Promise<void> {
     await registerSwaggerGenerator(app);
   }
 
-  await app.register(cors, { origin: true });
+  await app.register(cors, {
+    origin: true,
+    // Web 通过 Authorization: Bearer 访问 auth/tx；显式放行预检请求头。
+    allowedHeaders: ['content-type', 'authorization', 'x-request-id']
+  });
   await app.register(evmGatewayRoutes);
   await app.register(tronGatewayRoutes);
   await app.register(btcGatewayRoutes);
+  await app.register(authRoutes);
+  await app.register(txRoutes);
 
   app.get('/health', { schema: healthSchema }, async () => ({
     ok: true as const

@@ -179,3 +179,82 @@ export const btcStatusSchema = {
     }
   }
 } as const;
+
+export const authChallengeSchema = {
+  tags: ['auth'],
+  summary: '创建一次性登录 challenge（SIWE 风格消息）',
+  body: {
+    type: 'object',
+    required: ['address', 'chainId'],
+    properties: {
+      address: { type: 'string', description: 'EVM 0x address' },
+      chainId: { type: 'integer', minimum: 1 }
+    }
+  }
+} as const;
+
+export const authVerifySchema = {
+  tags: ['auth'],
+  summary: '校验 personal_sign 签名并签发 Bearer 会话',
+  body: {
+    type: 'object',
+    required: ['challengeId', 'address', 'signature'],
+    properties: {
+      challengeId: { type: 'string' },
+      address: { type: 'string' },
+      signature: { type: 'string' }
+    }
+  }
+} as const;
+
+export const authMeSchema = {
+  tags: ['auth'],
+  summary: '读取当前 Bearer 会话',
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        address: { type: 'string' },
+        chainId: { type: 'integer' },
+        expiresAt: { type: 'string' }
+      }
+    }
+  }
+} as const;
+
+export const authLogoutSchema = {
+  tags: ['auth'],
+  summary: '注销 Bearer 会话（幂等）',
+  response: {
+    200: {
+      type: 'object',
+      properties: { ok: { type: 'boolean', const: true } },
+      required: ['ok']
+    }
+  }
+} as const;
+
+export const txBroadcastSchema = {
+  tags: ['tx'],
+  summary: '广播已签名 EVM 交易（需 Bearer 会话）',
+  body: {
+    type: 'object',
+    required: ['chainId', 'signedTransaction'],
+    properties: {
+      chainId: { type: 'integer', minimum: 1 },
+      signedTransaction: {
+        type: 'string',
+        description: '0x-prefixed signed raw transaction'
+      }
+    }
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        chainId: { type: 'integer' },
+        hash: { type: 'string' }
+      }
+    }
+  }
+} as const;
