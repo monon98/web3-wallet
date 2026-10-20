@@ -26,3 +26,10 @@ export function getTronApiKey(): string | undefined {
   const k = process.env.SERVER_TRON_API_KEY?.trim();
   return k || undefined;
 }
+
+/** BTC 数据源（Esplora）根地址；默认 Blockstream 公共实例，可切换自建 / 其它实例 */
+export function getBtcApiUrl(): string {
+  return (
+    process.env.SERVER_BTC_API_URL?.trim() || 'https://blockstream.info/api'
+  );
+}

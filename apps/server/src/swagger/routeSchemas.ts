@@ -141,3 +141,41 @@ export const tronStatusSchema = {
     }
   }
 } as const;
+
+export const btcExplorerAddressSchema = {
+  tags: ['btc-explorer'],
+  summary: '单地址余额（Esplora）',
+  querystring: {
+    type: 'object',
+    required: ['address'],
+    properties: {
+      address: {
+        type: 'string',
+        description: 'Bitcoin mainnet address (1 / 3 / bc1)'
+      }
+    }
+  }
+} as const;
+
+export const btcExplorerAddressesSchema = {
+  tags: ['btc-explorer'],
+  summary: '批量地址余额（Esplora，服务端串行 + 节流）',
+  body: {
+    type: 'object',
+    description: '见 @plugin/shared btcExplorerAddressesRequestSchema'
+  }
+} as const;
+
+export const btcStatusSchema = {
+  tags: ['btc-meta'],
+  summary: 'BTC 网关配置探测（自定义端点 / 串行间隔）',
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        apiUrlConfigured: { type: 'boolean' },
+        minIntervalMs: { type: 'number' }
+      }
+    }
+  }
+} as const;

@@ -24,6 +24,9 @@
 - **0.46** · 2026-10-20  
   Web：`/gateway` 联调页接入服务端 **Tron 网关**——单地址 / 批量查询 **TRX** 与 **TRC-20 原始数量**（每批 ≤ 20；表格预览上限 20 条，原始 JSON 保留全量）；批量中单地址失败按条目提示、不中断整批；[web.md](./web.md)、[prd-web.md](../product/prd-web.md)、§10 同步
 
+- **0.47** · 2026-10-20  
+  服务端：**BTC 网关骨架**（数据源 **Esplora**，默认 Blockstream 公共实例）——`GET /api/v1/btc/status`、`GET /api/v1/btc/explorer/address`、`POST /api/v1/btc/explorer/addresses`（按地址**串行** + `SERVER_BTC_MIN_INTERVAL_MS` 节流，单次 ≤ 20；主网地址校验 P2PKH / P2SH / SegWit v0 / Taproot）；`SERVER_BTC_API_URL`；`@plugin/shared` 新增 `http/btcExplorer`；§5.2、§5.4、§9、§10 与 [server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[shared.md](./shared.md)、[prd-shared.md](../product/prd-shared.md) 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -384,6 +387,10 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
     - `GET /api/v1/tron/explorer/account?address=T...`：单地址 **TRX 余额（sun）** 与 **TRC-20 持仓（原始数量）**（[TronGrid accounts](https://developers.tron.network/reference/getaccount)）；服务端校验 **base58check** 地址。
     - `POST /api/v1/tron/explorer/accounts`：JSON `{ addresses }`，最多 **20** 个地址；服务端**按地址串行**调用 TronGrid 并以 `SERVER_TRON_MIN_INTERVAL_MS`（默认 250）节流；单地址上游失败（如公共额度 429）以条目内 `error` 返回（不中断整批）。
     - `GET /api/v1/tron/status`：Tron API Key 是否配置与批量串行间隔（`apiKeyConfigured`、`minIntervalMs`；不含密钥）。
+  - **BTC 链网关（已实现骨架，数据源 Esplora）**：
+    - `GET /api/v1/btc/explorer/address?address=...`：单地址**已确认余额**（sat）、**内存池净变化**与已确认交易数（[Esplora API](https://github.com/Blockstream/esplora/blob/master/API.md)）；服务端校验**比特币主网地址**（P2PKH / P2SH / SegWit v0 / Taproot）。
+    - `POST /api/v1/btc/explorer/addresses`：JSON `{ addresses }`，最多 **20** 个地址；服务端**按地址串行**调用 Esplora 并以 `SERVER_BTC_MIN_INTERVAL_MS`（默认 250）节流；单地址上游失败以条目内 `error` 返回（不中断整批）。
+    - `GET /api/v1/btc/status`：自定义端点是否配置与批量串行间隔（`apiUrlConfigured`、`minIntervalMs`）。
 
 ### 5.3 服务端 ↔ 链
 
@@ -408,7 +415,8 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `EVM_BATCH_SENDER_ADDRESSES_JSON`             | （可选）`BatchSender` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/batch-sender/build` 的 `chainId` 一致                       |
 | `SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY` | [TronGrid](https://developers.tron.network/) 根地址（默认 `https://api.trongrid.io`）与 API Key（勿提交仓库；仅服务端使用）                                                        |
 | `SERVER_TRON_MIN_INTERVAL_MS`                 | （可选）Tron 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                            |
-| `SERVER_BTC_ESPLORA_URL` 等                   | BTC 索引/节点只读或广播端点                                                                                                                                                        |
+| `SERVER_BTC_API_URL`                          | （可选）[Esplora](https://github.com/Blockstream/esplora/blob/master/API.md) API 根地址，默认 `https://blockstream.info/api`（只读；无需 Key）                                     |
+| `SERVER_BTC_MIN_INTERVAL_MS`                  | （可选）BTC 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                             |
 | `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
 | `SESSION_SECRET` / OAuth 等                   | 会话与第三方登录（若使用）                                                                                                                                                         |
 
@@ -481,7 +489,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 - **Web 与插件桥接**：默认 **EIP-1193 与 postMessage 双轨并存**；若裁剪范围须在 §0 留痕
 - **EVM 目标链**：`CHAIN_ID`、测试网/主网及 **RPC 供应商**（或自建节点）
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
-- **BTC**：区块数据源（Esplora、全节点等）、是否提供**代广播**及合规边界
+- **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
 - **批量地址查询**：单次最大条数、QPS、缓存、鉴权与是否商业化
 - **ERC-4337（账户抽象）— 待办调研**：评估 **UserOperation** / **Bundler** / **Paymaster** / 智能合约账户与 **EntryPoint** 在本项目中的适用场景。  
   重点：**资金分散与归集**（尤其原生币无法像 ERC-20 那样单合约 `transferFrom` 多源拉取的前提下，AA 能否改善批量体验、代付 gas、与插件/服务端托管边界如何划分）。  
@@ -507,7 +515,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 [apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 **EVM / Tron** 联调。
 
-[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、Etherscan V2、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）与 **Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`），见 §5.2。
+[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、Etherscan V2、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
 
 **Auth / 业务 API / BTC 网关** 仍待迭代。
 

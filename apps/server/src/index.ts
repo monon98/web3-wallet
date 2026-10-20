@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 
 import { getEtherscanApiKey, getServerRpcUrl } from './config/chain.js';
 import { createRootLogger } from './config/logger.js';
+import btcGatewayRoutes from './routes/btcGateway.js';
 import evmGatewayRoutes from './routes/evmGateway.js';
 import tronGatewayRoutes from './routes/tronGateway.js';
 import {
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   await app.register(cors, { origin: true });
   await app.register(evmGatewayRoutes);
   await app.register(tronGatewayRoutes);
+  await app.register(btcGatewayRoutes);
 
   app.get('/health', { schema: healthSchema }, async () => ({
     ok: true as const
