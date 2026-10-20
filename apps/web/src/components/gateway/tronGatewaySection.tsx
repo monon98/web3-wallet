@@ -147,14 +147,20 @@ export function TronGatewaySection({ apiBase }: Props) {
           variant="primary"
           size="sm"
           disabled={!apiBase || busy}
-          onClick={() => singleMutation.mutate()}>
+          onClick={() => {
+            batchMutation.reset();
+            singleMutation.mutate();
+          }}>
           {singleMutation.isPending ? '请求中…' : '单地址查询（取第一行）'}
         </UiButton>
         <UiButton
           variant="outline"
           size="sm"
           disabled={!apiBase || busy}
-          onClick={() => batchMutation.mutate()}>
+          onClick={() => {
+            singleMutation.reset();
+            batchMutation.mutate();
+          }}>
           {batchMutation.isPending ? '请求中（串行，可能较慢）…' : '批量查询'}
         </UiButton>
       </div>

@@ -27,6 +27,9 @@
 - **0.47** · 2026-10-20  
   服务端：**BTC 网关骨架**（数据源 **Esplora**，默认 Blockstream 公共实例）——`GET /api/v1/btc/status`、`GET /api/v1/btc/explorer/address`、`POST /api/v1/btc/explorer/addresses`（按地址**串行** + `SERVER_BTC_MIN_INTERVAL_MS` 节流，单次 ≤ 20；主网地址校验 P2PKH / P2SH / SegWit v0 / Taproot）；`SERVER_BTC_API_URL`；`@plugin/shared` 新增 `http/btcExplorer`；§5.2、§5.4、§9、§10 与 [server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[shared.md](./shared.md)、[prd-shared.md](../product/prd-shared.md) 同步
 
+- **0.48** · 2026-10-20  
+  Web：`/gateway` 增加 **BTC 面板**（数据源 **Esplora**）——单地址 / 批量地址余额（已确认 / 内存池净变化 / 交易数，单次 ≤ 20；批量按服务端串行）；页面按 **EVM / Tron / BTC** 拆分为 `src/components/gateway/*` 并改为分段切换（保留已查结果）；统一错误提示（从 JSON 错误体提取 message）与原始 JSON 折叠展示；修复 Web **UnoCSS 未扫描 `@plugin/ui`** 导致共享组件样式缺失；[web.md](./web.md)、[prd-web.md](../product/prd-web.md)、[ui.md](./ui.md)、§10 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -513,11 +516,11 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 **EVM / Tron** 联调。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 **EVM / Tron / BTC** 联调。
 
 [apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、Etherscan V2、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
 
-**Auth / 业务 API / BTC 网关** 仍待迭代。
+**Auth / 业务 API** 仍待迭代。
 
 ### 合约
 

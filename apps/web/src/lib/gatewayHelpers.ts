@@ -1,7 +1,9 @@
 import {
+  BTCEXPLORER_MAX_ADDRESSES_PER_BATCH,
   EVEXPLORER_MAX_ADDRESSES_PER_BATCH,
   TRONEXPLORER_MAX_ADDRESSES_PER_BATCH
 } from '@plugin/shared';
+import { formatUnits } from 'viem';
 
 export type EvmStatus = { rpc: boolean; etherscan: boolean };
 
@@ -56,12 +58,37 @@ export type TronAccountsResponse = {
   accounts: TronAccountBalances[];
 };
 
+export type BtcStatus = {
+  apiUrlConfigured: boolean;
+  minIntervalMs: number;
+};
+
+export type BtcAddressBalance = {
+  address: string;
+  /** 已确认余额（sat，十进制字符串） */
+  balanceSat: string;
+  /** 内存池未确认净变化（sat，可能为负） */
+  mempoolBalanceSat: string;
+  txCount: number;
+  /** 批量中单地址失败时的原因 */
+  error?: string;
+};
+
+export type BtcAddressesResponse = {
+  addresses: BtcAddressBalance[];
+};
+
 export const DEFAULT_ADDRESSES = `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe`;
 
 /** 示例地址：TRON 超级代表候选（账户数据量适中，便于演示） */
 export const DEFAULT_TRON_ADDRESSES = `TN2W4cc7a4dsYyTLiLMWa9m7jVpdLjGvYs
 TC6qGw3d6h25gjcM64KLuZn1cznNi5NR6t`;
+
+/** 示例地址：创世 P2PKH、常见 P2SH、BIP-173 P2WPKH 示例（覆盖三种地址编码） */
+export const DEFAULT_BTC_ADDRESSES = `1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4`;
 
 export const CHAIN_OPTIONS: ReadonlyArray<{ id: number; label: string }> = [
   { id: 1, label: 'Ethereum 主网 (1)' },
@@ -89,6 +116,11 @@ export function parseAddressLines(text: string): string[] {
 /** Tron 地址行解析；上限与服务端 `POST /api/v1/tron/explorer/accounts` 一致。 */
 export function parseTronAddressLines(text: string): string[] {
   return splitAddressLines(text).slice(0, TRONEXPLORER_MAX_ADDRESSES_PER_BATCH);
+}
+
+/** BTC 地址行解析；上限与服务端 `POST /api/v1/btc/explorer/addresses` 一致。 */
+export function parseBtcAddressLines(text: string): string[] {
+  return splitAddressLines(text).slice(0, BTCEXPLORER_MAX_ADDRESSES_PER_BATCH);
 }
 
 export function shortAddress(addr: string): string {
@@ -150,5 +182,16 @@ export function tokenAmountDisplay(quantity: string, divisor: string): string {
     return fracStr ? `${whole.toString()}.${fracStr}` : whole.toString();
   } catch {
     return `${quantity} / ${divisor}`;
+  }
+}
+
+/** sat → BTC（8 位精度；负数表示内存池净流出）。 */
+export function formatBtcAmount(sat: string): string {
+  try {
+    const negative = sat.startsWith('-');
+    const value = formatUnits(BigInt(negative ? sat.slice(1) : sat), 8);
+    return negative ? `-${value}` : value;
+  } catch {
+    return sat;
   }
 }

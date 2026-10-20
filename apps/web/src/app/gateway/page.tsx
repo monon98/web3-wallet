@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { BtcGatewaySection } from '@/components/gateway/btcGatewaySection';
 import { EvmGatewaySection } from '@/components/gateway/evmGatewaySection';
 import { GatewayStatusSection } from '@/components/gateway/gatewayStatusSection';
 import { TronGatewaySection } from '@/components/gateway/tronGatewaySection';
@@ -9,15 +10,16 @@ import type { SegmentedControlOption } from '@plugin/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-type GatewayTab = 'evm' | 'tron';
+type GatewayTab = 'evm' | 'tron' | 'btc';
 
 const TAB_OPTIONS: SegmentedControlOption[] = [
   { value: 'evm', label: 'EVM' },
-  { value: 'tron', label: 'Tron' }
+  { value: 'tron', label: 'Tron' },
+  { value: 'btc', label: 'BTC' }
 ];
 
 /**
- * 服务端网关联调页：EVM / Tron 分链展示。
+ * 服务端网关联调页：EVM / Tron / BTC 分链展示。
  * 各链区块自持有表单与查询状态；切换 tab 用 CSS 隐藏，避免丢失已查结果。
  */
 export default function GatewayPage() {
@@ -36,7 +38,7 @@ export default function GatewayPage() {
 
       <header className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          服务端网关联调（EVM / Tron）
+          服务端网关联调（EVM / Tron / BTC）
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           查询走本机 Fastify（默认{' '}
@@ -46,8 +48,8 @@ export default function GatewayPage() {
           <span className="font-mono text-xs">NEXT_PUBLIC_API_URL</span>。
         </p>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          按链切换查看；Tron 批量由服务端按地址串行请求，可能较慢，单次最多 20
-          个地址。
+          按链切换查看；Tron / BTC
+          批量由服务端按地址串行请求，可能较慢，单次最多 20 个地址。
         </p>
       </header>
 
@@ -78,6 +80,9 @@ export default function GatewayPage() {
       </div>
       <div className={tab === 'tron' ? '' : 'hidden'}>
         <TronGatewaySection apiBase={apiBase} />
+      </div>
+      <div className={tab === 'btc' ? '' : 'hidden'}>
+        <BtcGatewaySection apiBase={apiBase} />
       </div>
     </main>
   );
