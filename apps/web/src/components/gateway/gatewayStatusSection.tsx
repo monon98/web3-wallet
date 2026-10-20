@@ -9,7 +9,7 @@ type Props = {
   apiBase: string;
 };
 
-/** 连接与状态：服务端可达性、EVM RPC / Etherscan 配置与 bridge 方法枚举。 */
+/** 连接与状态：服务端可达性、服务端 RPC / Etherscan 配置与 bridge 方法枚举。 */
 export function GatewayStatusSection({ apiBase }: Props) {
   const statusQuery = useQuery({
     queryKey: ['evm-status', apiBase],
@@ -59,8 +59,10 @@ export function GatewayStatusSection({ apiBase }: Props) {
       {statusQuery.data ? (
         <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900/50">
-            <dt className="text-xs text-neutral-500 dark:text-neutral-400">
-              RPC 代理
+            <dt
+              className="text-xs text-neutral-500 dark:text-neutral-400"
+              title="SERVER_RPC_URL：用于 EVM JSON-RPC 转发与原生余额查询">
+              服务端 RPC
             </dt>
             <dd className="mt-1">
               <UiBadge variant={statusQuery.data.rpc ? 'success' : 'warning'}>

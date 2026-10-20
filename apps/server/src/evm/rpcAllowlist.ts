@@ -1,5 +1,5 @@
 /**
- * 轻量 JSON-RPC 代理：仅放行常见只读方法 + 广播（由服务端代发 raw tx）。
+ * 轻量 JSON-RPC 转发（不是网络代理）：仅放行常见只读方法 + 广播（由服务端代发 raw tx）。
  * 后续可按链/鉴权收紧。
  */
 export const RPC_ALLOWED_METHODS = new Set([

@@ -19,7 +19,7 @@ const TAB_OPTIONS: SegmentedControlOption[] = [
 ];
 
 /**
- * 服务端网关联调页：EVM / Tron / BTC 分链展示。
+ * 多链余额查询页：EVM / Tron / BTC 分链展示（路由保留 `/gateway`）。
  * 各链区块自持有表单与查询状态；切换 tab 用 CSS 隐藏，避免丢失已查结果。
  */
 export default function GatewayPage() {
@@ -38,7 +38,7 @@ export default function GatewayPage() {
 
       <header className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          服务端网关联调（EVM / Tron / BTC）
+          多链余额查询（EVM / Tron / BTC）
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           查询走本机 Fastify（默认{' '}
@@ -65,7 +65,7 @@ export default function GatewayPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          链网关
+          查询链
         </span>
         <SegmentedControl
           options={TAB_OPTIONS}

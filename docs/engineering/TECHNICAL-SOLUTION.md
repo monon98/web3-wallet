@@ -33,6 +33,9 @@
 - **0.49** · 2026-10-20  
   服务端：启动时按 **cwd `.env` → 仓库根 `.env`** 加载环境变量（Node `process.loadEnvFile`，已存在的进程变量优先）；EVM **原生余额**在配置 `SERVER_RPC_URL` 时优先走 RPC（`eth_chainId` 校验链一致），RPC 不可用再回退 Etherscan，响应新增 `source: "rpc" | "etherscan"`；Etherscan 网络失败后 60s 冷却，ERC-20 持仓返回 `etherscan_unreachable`；Web 显示 RPC 兜底来源与可读错误提示；§5.2、§5.4、[server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[web.md](./web.md)、[server-evm-etherscan.md](../runbook/server-evm-etherscan.md) 同步
 
+- **0.50** · 2026-10-20  
+  Web：将 `/gateway` 页面名称由「服务端网关联调」改为 **多链余额查询**（EVM / Tron / BTC；路由保持不变），状态项「RPC 代理」改为「服务端 RPC」；文档术语统一为 **JSON-RPC 转发**，避免与网络代理混淆；[web.md](./web.md)、[prd-web.md](../product/prd-web.md)、[server.md](./server.md)、[prd-server.md](../product/prd-server.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md)、[evm-batch-balances.md](./evm-batch-balances.md)、[server-evm-etherscan.md](../runbook/server-evm-etherscan.md) 同步
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -521,9 +524,9 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) 服务端 **EVM / Tron / BTC** 联调。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/gateway`](../../apps/web/src/app/gateway/page.tsx) **多链余额查询**（EVM / Tron / BTC）。
 
-[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 代理、原生余额 RPC / Etherscan、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
+[apps/server](../../apps/server/)（Fastify）：**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、`balance-reader` 链上批量、`batch-sender` calldata 构造、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
 
 **Auth / 业务 API** 仍待迭代。
 

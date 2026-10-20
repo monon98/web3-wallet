@@ -26,7 +26,7 @@
   4. 验证：`POST /api/v1/evm/explorer/native-balances` 返回 `source: "rpc"`；`GET /api/v1/evm/explorer/native-balance` 同理。
 - **易错点**：不要把 `SERVER_RPC_URL` 填成 `https://api.etherscan.io/v2/api`——Etherscan REST API 不是 JSON-RPC，会导致 RPC 兜底与 `/api/v1/evm/rpc` 均失败。
 
-## JSON-RPC 代理安全
+## JSON-RPC 转发安全
 
 - **现象**：开放任意 JSON-RPC 方法会带来滥用风险。
 - **处理**：`POST /api/v1/evm/rpc` 使用**方法白名单**并限制批量条数；见技术方案 §5.2。

@@ -67,4 +67,4 @@
 ## 相关文档
 
 - [server.md](./server.md)（服务端入口）
-- [Runbook：server-evm-etherscan.md](../runbook/server-evm-etherscan.md)（Etherscan 限流与 RPC 代理排障）
+- [Runbook：server-evm-etherscan.md](../runbook/server-evm-etherscan.md)（Etherscan 限流与 JSON-RPC 转发排障）

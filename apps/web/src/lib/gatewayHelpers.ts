@@ -162,7 +162,7 @@ export function apiErrorMessage(body: string, status: number): string {
 }
 
 /**
- * EVM 网关错误码 → 面向用户的中文提示；服务端返回短错误码时比原文更易定位。
+ * EVM 查询错误码 → 面向用户的中文提示；服务端返回短错误码时比原文更易定位。
  */
 export function evmErrorMessage(message: string): string {
   switch (message) {
