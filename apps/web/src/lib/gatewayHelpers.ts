@@ -57,7 +57,7 @@ export type TronAccountsResponse = {
 };
 
 export const DEFAULT_ADDRESSES = `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
-0xde0b295669a9FD93d5f28d9ec85e40f4CB697BAe`;
+0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe`;
 
 /** 示例地址：TRON 超级代表候选（账户数据量适中，便于演示） */
 export const DEFAULT_TRON_ADDRESSES = `TN2W4cc7a4dsYyTLiLMWa9m7jVpdLjGvYs
@@ -100,6 +100,31 @@ export function shortAddress(addr: string): string {
 
 export async function readJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
+}
+
+/**
+ * 从失败响应体中提取可读错误：Fastify 返回 JSON（message/error），
+ * 上游（如 TronGrid）可能是纯文本；无法解析时回退原文或 HTTP 状态。
+ */
+export function apiErrorMessage(body: string, status: number): string {
+  const trimmed = body.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        message?: unknown;
+        error?: unknown;
+      };
+      if (typeof parsed.message === 'string' && parsed.message.trim()) {
+        return parsed.message;
+      }
+      if (typeof parsed.error === 'string' && parsed.error.trim()) {
+        return parsed.error;
+      }
+    } catch {
+      // 非 JSON：按原文展示
+    }
+  }
+  return trimmed || `HTTP ${status}`;
 }
 
 /** 演示用：将 quantity/divisor 转为可读十进制（极大数可能不精确）。 */

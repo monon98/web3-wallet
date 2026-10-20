@@ -13,7 +13,7 @@ export function HomeDemoNav() {
         size="md"
         className="w-full sm:w-auto"
         onClick={() => router.push('/gateway')}>
-        服务端 EVM 网关
+        服务端网关联调
       </UiButton>
       <UiButton
         variant="outline"
