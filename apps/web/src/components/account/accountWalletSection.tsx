@@ -1,4 +1,4 @@
-import { ErrorNotice } from '@/components/gateway/resultBlocks';
+import { ErrorNotice } from '@/components/common/resultBlocks';
 import { PanelSection, UiBadge, UiButton } from '@plugin/ui';
 import type { Address } from 'viem';
 

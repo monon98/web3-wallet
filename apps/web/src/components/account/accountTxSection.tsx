@@ -1,4 +1,4 @@
-import { ErrorNotice } from '@/components/gateway/resultBlocks';
+import { ErrorNotice } from '@/components/common/resultBlocks';
 import type { StoredAuthSession } from '@/lib/accountApi';
 import {
   FieldHint,

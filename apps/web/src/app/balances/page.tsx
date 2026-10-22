@@ -1,89 +1,64 @@
-﻿'use client';
-
-import { BtcGatewaySection } from '@/components/gateway/btcGatewaySection';
-import { EvmGatewaySection } from '@/components/gateway/evmGatewaySection';
-import { GatewayStatusSection } from '@/components/gateway/gatewayStatusSection';
-import { TronGatewaySection } from '@/components/gateway/tronGatewaySection';
-import { getPublicApiBaseUrl } from '@/lib/publicApi';
-import { PanelSection, SegmentedControl } from '@plugin/ui';
-import type { SegmentedControlOption } from '@plugin/ui';
+﻿import {
+  BALANCE_FAMILY_ORDER,
+  getBalanceFamilyMeta
+} from '@/lib/balancesFamilies';
+import { PanelSection } from '@plugin/ui';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
 
-type BalanceTab = 'evm' | 'tron' | 'btc';
-
-const TAB_OPTIONS: SegmentedControlOption[] = [
-  { value: 'evm', label: 'EVM' },
-  { value: 'tron', label: 'Tron' },
-  { value: 'btc', label: 'BTC' }
-];
-
-/**
- * 多链余额查询页：EVM / Tron / BTC 分链展示。
- * 各链区块自持有表单与查询状态；切换 tab 用 CSS 隐藏，避免丢失已查结果。
- */
-export default function BalancesPage() {
-  const apiBase = useMemo(() => getPublicApiBaseUrl(), []);
-  const [tab, setTab] = useState<BalanceTab>('evm');
-
+/** 多链余额查询入口：按链进入独立页面，避免三组表单与结果挤在同一页。 */
+export default function BalancesIndexPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 leading-relaxed text-neutral-900 dark:text-neutral-100 sm:px-6 lg:px-8">
-      <p>
+    <main className="mx-auto w-full max-w-5xl space-y-5 px-4 py-8 leading-relaxed text-neutral-900 dark:text-neutral-100 sm:px-6 lg:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/"
           className="text-sm text-blue-700 underline decoration-blue-700/50 hover:opacity-80 dark:text-blue-400 dark:decoration-blue-400/50">
           ← 返回首页
         </Link>
-      </p>
+        <Link
+          href="/account"
+          className="text-sm text-blue-700 underline decoration-blue-700/50 hover:opacity-80 dark:text-blue-400 dark:decoration-blue-400/50">
+          登录与交易广播 →
+        </Link>
+      </div>
 
       <header className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          多链余额查询（EVM / Tron / BTC）
+          多链余额查询
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          查询走本机 Fastify（默认{' '}
-          <span className="font-mono text-xs">http://localhost:8787</span>
-          ）。请先 <span className="font-mono text-xs">pnpm dev:server</span>
-          ；生产环境请在环境变量中设置{' '}
-          <span className="font-mono text-xs">NEXT_PUBLIC_API_URL</span>。
-        </p>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          按链切换查看；Tron / BTC
-          批量由服务端按地址串行请求，可能较慢，单次最多 20 个地址。
+          选择一条链进入独立查询页。每条链只展示自己的表单和结果，避免三组输入挤在同一页。
         </p>
       </header>
 
-      {!apiBase ? (
-        <PanelSection
-          tone="amber"
-          title="需要 API 基址"
-          description="非开发构建未设置 NEXT_PUBLIC_API_URL。请在部署环境中配置后重新构建。"
-        />
-      ) : null}
-
-      <GatewayStatusSection apiBase={apiBase} />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          查询链
-        </span>
-        <SegmentedControl
-          options={TAB_OPTIONS}
-          value={tab}
-          onChange={(next) => setTab(next as BalanceTab)}
-          size="md"
-        />
+      <div className="grid gap-4 md:grid-cols-3">
+        {BALANCE_FAMILY_ORDER.map((family) => {
+          const meta = getBalanceFamilyMeta(family);
+          return (
+            <Link
+              key={family}
+              href={meta.href}
+              className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-primary)]">
+              <PanelSection title={meta.title} description={meta.description}>
+                <p className="text-sm font-medium text-blue-700 group-hover:underline dark:text-blue-400">
+                  进入查询 →
+                </p>
+              </PanelSection>
+            </Link>
+          );
+        })}
       </div>
 
-      <div className={tab === 'evm' ? '' : 'hidden'}>
-        <EvmGatewaySection apiBase={apiBase} />
-      </div>
-      <div className={tab === 'tron' ? '' : 'hidden'}>
-        <TronGatewaySection apiBase={apiBase} />
-      </div>
-      <div className={tab === 'btc' ? '' : 'hidden'}>
-        <BtcGatewaySection apiBase={apiBase} />
-      </div>
+      <PanelSection title="查询说明">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-[color:var(--ui-muted-fg)]">
+          <li>每个页面最多查询 20 个地址，地址会自动去重。</li>
+          <li>EVM 原生余额优先走服务端 RPC；ERC-20 持仓依赖 Etherscan。</li>
+          <li>
+            Tron / BTC 由服务端按地址串行节流，耗时以结果中的 durationMs 为准。
+          </li>
+          <li>登录后可获得更高限额；未登录按 IP 限额查询。</li>
+        </ul>
+      </PanelSection>
     </main>
   );
 }

@@ -22,7 +22,7 @@ type PartialErrorNoticeProps = {
   className?: string;
 };
 
-/** 批量中单个地址失败：条目级警告（不阻断整批）。 */
+/** 批量中单个地址 / 单条链失败：条目级警告（不阻断其它结果）。 */
 export function PartialErrorNotice({
   message,
   className = ''
@@ -35,15 +35,13 @@ export function PartialErrorNotice({
 }
 
 type RawResultProps = {
-  /** 成功时为 JSON 文本，失败时为错误消息（各链面板的既有约定） */
+  /** 成功时为 JSON 文本；非 JSON 按错误消息展示 */
   raw: string | null;
   className?: string;
   preClassName?: string;
 };
 
-/**
- * 调试用原始响应：JSON 收进可折叠区块，错误消息按块级提示展示。
- */
+/** 调试用原始响应：JSON 收进可折叠区块，错误消息按块级提示展示。 */
 export function RawResult({
   raw,
   className = 'mt-3',

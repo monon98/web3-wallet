@@ -15,13 +15,16 @@ import {
   type AuthChallenge,
   type StoredAuthSession
 } from '@/lib/accountApi';
+import {
+  clearAuthSessionToken,
+  readAuthSessionToken,
+  writeAuthSessionToken
+} from '@/lib/authSession';
 import { getPublicApiBaseUrl } from '@/lib/publicApi';
 import { PanelSection } from '@plugin/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { getAddress, isAddress, numberToHex, parseEther } from 'viem';
-
-const SESSION_STORAGE_KEY = 'plugin.web.authSessionToken';
 
 /**
  * 登录与交易广播联调页。
@@ -63,7 +66,7 @@ export default function AccountPage() {
     if (!apiBase) {
       return;
     }
-    const token = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const token = readAuthSessionToken();
     if (!token) {
       return;
     }
@@ -77,7 +80,7 @@ export default function AccountPage() {
         }
       } catch {
         // 服务重启或会话过期：清掉本地 token，不阻塞页面。
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        clearAuthSessionToken();
       }
     })();
 
@@ -93,7 +96,7 @@ export default function AccountPage() {
     }
 
     if (session && session.address !== connection.address) {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      clearAuthSessionToken();
       setSession(null);
       setAuthNotice('钱包地址已变化，请重新登录。');
     }
@@ -184,7 +187,7 @@ export default function AccountPage() {
         // verify 已签发 token；/me 失败不阻断本次登录。
       }
 
-      sessionStorage.setItem(SESSION_STORAGE_KEY, verified.sessionToken);
+      writeAuthSessionToken(verified.sessionToken);
       setSession({ ...me, token: verified.sessionToken });
       setChallenge(null);
       setSignature(null);
@@ -198,7 +201,7 @@ export default function AccountPage() {
 
   function logout() {
     const token = session?.token;
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    clearAuthSessionToken();
     setSession(null);
     setChallenge(null);
     setSignature(null);
@@ -307,7 +310,7 @@ export default function AccountPage() {
       setTxNotice('服务端已广播交易。');
     } catch (e) {
       if (e instanceof Error && 'code' in e && e.code === 'unauthorized') {
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        clearAuthSessionToken();
         setSession(null);
         setAuthError('登录已失效，请重新登录。');
       }
