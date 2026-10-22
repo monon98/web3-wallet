@@ -244,6 +244,10 @@ export const authMeSchema = {
         chainId: { type: 'integer' },
         expiresAt: { type: 'string' }
       }
+    },
+    401: {
+      type: 'object',
+      properties: { error: { type: 'string' } }
     }
   }
 } as const;
@@ -280,6 +284,49 @@ export const txBroadcastSchema = {
       properties: {
         chainId: { type: 'integer' },
         hash: { type: 'string' }
+      }
+    },
+    400: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: {}
+      }
+    },
+    401: {
+      type: 'object',
+      properties: { error: { type: 'string' } }
+    },
+    403: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: {}
+      }
+    },
+    422: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: {}
+      }
+    },
+    500: {
+      type: 'object',
+      properties: { error: { type: 'string' } }
+    },
+    502: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: {}
+      }
+    },
+    503: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: {}
       }
     }
   }

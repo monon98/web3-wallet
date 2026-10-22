@@ -3,12 +3,14 @@ import type { IncomingMessage } from 'node:http';
 import cors from '@fastify/cors';
 import { bridgeMethodSchema } from '@plugin/shared';
 import Fastify, {
+  LogController,
   type FastifyBaseLogger,
   type FastifyInstance,
   type FastifyServerOptions
 } from 'fastify';
 
 import { getEtherscanApiKey, getServerRpcUrl } from './config/chain.js';
+import { isCorsOriginAllowed } from './config/cors.js';
 import authRoutes from './routes/auth.js';
 import balancesRoutes from './routes/balances.js';
 import btcGatewayRoutes from './routes/btcGateway.js';
@@ -27,6 +29,11 @@ import { healthSchema, metaSchema } from './swagger/routeSchemas.js';
  *
  * `index.ts` 传入生产 logger 并调用 `listen`；测试直接 `buildApp({ logger: false })`
  * 后用 `app.inject` 调用路由。这样余额查询集成测试无需启动真实端口或外部网络。
+ *
+ * 安全边界：
+ * - CORS 只放行 `SERVER_CORS_ORIGINS`（开发默认 localhost:3000）；
+ * - 所有响应补基础安全头；access log 只记录路由模板，不记录查询串中的地址；
+ * - `SERVER_TRUST_PROXY=1` 时才信任 `X-Forwarded-For`，避免客户端伪造限流 IP。
  */
 
 export type BuildAppOptions = {
@@ -35,25 +42,49 @@ export type BuildAppOptions = {
   enableSwagger?: boolean;
 };
 
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+
+function resolveRequestId(req: IncomingMessage): string {
+  const header = req.headers['x-request-id'];
+  if (typeof header === 'string' && REQUEST_ID_PATTERN.test(header)) {
+    return header;
+  }
+  return randomUUID();
+}
+
 export async function buildApp(
   options: BuildAppOptions = {}
 ): Promise<FastifyInstance> {
   const baseOptions: FastifyServerOptions = {
     // Fastify 5：`logger` 仅接受配置对；已构造的 Pino 实例用 `loggerInstance`。
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
     requestIdHeader: 'x-request-id',
-    genReqId: (req: IncomingMessage) => {
-      const h = req.headers['x-request-id'];
-      return typeof h === 'string' && h.length > 0 ? h : randomUUID();
-    }
+    genReqId: resolveRequestId,
+    trustProxy:
+      process.env.SERVER_TRUST_PROXY === '1' ||
+      process.env.SERVER_TRUST_PROXY === 'true'
   };
 
   const app = options.loggerInstance
     ? Fastify({ ...baseOptions, loggerInstance: options.loggerInstance })
     : Fastify({ ...baseOptions, logger: options.logger ?? false });
 
+  // API 响应不主动内嵌、不嗅探 MIME；Swagger UI 仍可在开发态独立打开。
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('referrer-policy', 'no-referrer');
+    reply.header(
+      'permissions-policy',
+      'camera=(), microphone=(), geolocation=()'
+    );
+    return payload;
+  });
+
   app.addHook('onResponse', (request, reply, done) => {
     const ms = Math.round(reply.elapsedTime);
+    // 使用路由模板而非原始 URL，避免把地址查询串写进访问日志。
+    const route = request.routeOptions.url ?? request.url.split('?')[0];
     request.log.info(
       {
         reqId: request.id,
@@ -61,7 +92,7 @@ export async function buildApp(
         statusCode: reply.statusCode,
         responseTime: ms
       },
-      `${request.method} ${request.url} ${reply.statusCode} ${ms}ms`
+      `${request.method} ${route} ${reply.statusCode} ${ms}ms`
     );
     done();
   });
@@ -72,7 +103,12 @@ export async function buildApp(
   }
 
   await app.register(cors, {
-    origin: true,
+    // 不回显任意 Origin；未配置白名单时不产生 CORS 放行头。
+    origin: (origin, cb) => {
+      cb(null, !origin || isCorsOriginAllowed(origin));
+    },
+    credentials: false,
+    methods: ['GET', 'POST', 'OPTIONS'],
     // Web 通过 Authorization: Bearer 访问 auth / tx；余额查询也会携带可选会话。
     allowedHeaders: ['content-type', 'authorization', 'x-request-id'],
     exposedHeaders: [
@@ -80,7 +116,8 @@ export async function buildApp(
       'x-ratelimit-remaining',
       'x-ratelimit-reset',
       'retry-after'
-    ]
+    ],
+    maxAge: 600
   });
   await app.register(evmGatewayRoutes);
   await app.register(tronGatewayRoutes);

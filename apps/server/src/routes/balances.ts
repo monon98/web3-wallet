@@ -3,7 +3,7 @@ import {
   BALANCE_MAX_ADDRESSES_PER_CHAIN,
   balanceQueryRequestSchema
 } from '@plugin/shared';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 
 import { getBearerToken, getSessionFromToken } from '../auth/authService.js';
 import { getBalanceCacheOptions } from '../balances/balanceCache.js';
@@ -11,11 +11,7 @@ import {
   BalanceQueryServiceError,
   runBalanceQuery
 } from '../balances/queryBalances.js';
-import {
-  consumeRateLimit,
-  getBalanceRateLimits,
-  type RateLimitResult
-} from '../balances/rateLimit.js';
+import { getBalanceRateLimits } from '../balances/rateLimit.js';
 import {
   getEtherscanApiKey,
   getServerRpcUrl,
@@ -26,6 +22,10 @@ import {
   getEtherscanTokenCacheStaleTtlMs,
   getEtherscanTokenCacheTtlMs
 } from '../evm/etherscanV2.js';
+import {
+  consumeRateLimit,
+  setRateLimitHeaders
+} from '../security/rateLimit.js';
 import {
   balancesQuerySchema,
   balancesStatusSchema
@@ -38,15 +38,6 @@ import {
  * - `GET /api/v1/balances/status`：限额、缓存与上游配置探测（不含密钥）。
  * 安全边界：只接收公开地址，不接触私钥 / 助记词；日志只记录数量、耗时与状态。
  */
-
-function setRateLimitHeaders(
-  reply: FastifyReply,
-  result: RateLimitResult
-): void {
-  reply.header('x-ratelimit-limit', String(result.limit));
-  reply.header('x-ratelimit-remaining', String(result.remaining));
-  reply.header('x-ratelimit-reset', String(Math.ceil(result.resetAt / 1000)));
-}
 
 const balancesRoutes: FastifyPluginAsync = async (app) => {
   app.post(

@@ -1,6 +1,8 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { getAddress, isAddress, verifyMessage } from 'viem';
 
+import { getDefaultWebOrigin } from '../config/cors.js';
+
 /**
  * 登录 challenge / 会话存储（MVP，进程内存）。
  *
@@ -64,15 +66,15 @@ function resolveOrigin(origin: string | undefined): {
   domain: string;
   uri: string;
 } {
-  if (origin) {
-    try {
-      const url = new URL(origin);
-      return { domain: url.host, uri: origin };
-    } catch {
-      // 非法 Origin 不应影响 challenge 生成；回退到本地默认值。
-    }
+  const fallback = getDefaultWebOrigin();
+  const raw = origin?.trim() || fallback;
+  try {
+    const url = new URL(raw);
+    return { domain: url.host, uri: url.origin };
+  } catch {
+    const url = new URL(fallback);
+    return { domain: url.host, uri: url.origin };
   }
-  return { domain: 'localhost:3000', uri: 'http://localhost:3000' };
 }
 
 function buildMessage(params: {

@@ -60,10 +60,24 @@ export function createRootLogger(): pino.Logger {
       paths: [
         'req.headers.authorization',
         'req.headers.cookie',
+        'err.config.url',
+        'err.config.headers.authorization',
+        'err.request.url',
+        'err.request.headers.authorization',
+        '*.authorization',
         '*.password',
         '*.secret',
         '*.apiKey',
-        '*.api_key'
+        '*.api_key',
+        '*.token',
+        '*.accessToken',
+        '*.refreshToken',
+        '*.privateKey',
+        '*.mnemonic',
+        '*.signature',
+        '*.rawTransaction',
+        '*.signedTransaction',
+        '*.url'
       ],
       remove: true
     },

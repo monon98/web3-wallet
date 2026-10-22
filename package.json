@@ -33,9 +33,20 @@
   "pnpm": {
     "overrides": {
       "@types/node": "22.10.2",
+      "@parcel/watcher": "2.6.0",
+      "axios": "1.20.0",
+      "baseline-browser-mapping": "2.11.30",
+      "brace-expansion@5": "5.0.12",
+      "fast-uri@3": "3.1.9",
+      "follow-redirects": "1.16.1",
+      "immutable": "5.1.9",
       "prettier": "3.8.1",
+      "sass": "1.106.1",
+      "source-map-js": "1.2.2",
       "typescript": "5.9.3",
+      "valibot": "1.5.0",
       "viem": "2.47.6",
+      "ws@8": "8.22.0",
       "zod": "3.25.76",
       "zod-validation-error": "3.5.3"
     }

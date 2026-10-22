@@ -11,10 +11,12 @@ import { forwardToRpc } from './rpcForward.js';
  * 链一致性：先校验 raw tx 的 chainId 与请求一致，再校验 RPC `eth_chainId`，避免跨链广播。
  */
 
+export type TxBroadcastErrorStatus = 400 | 403 | 422 | 502 | 503;
+
 export class TxBroadcastError extends Error {
   constructor(
     message: string,
-    readonly statusCode: number,
+    readonly statusCode: TxBroadcastErrorStatus,
     readonly detail?: string
   ) {
     super(message);

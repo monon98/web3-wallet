@@ -33,10 +33,9 @@
     "@scure/bip32": "^2.0.1",
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^7.0.1",
-    "plasmo": "0.90.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tronweb": "^6.2.2",
+    "tronweb": "^6.5.1",
     "viem": "2.47.6"
   },
   "devDependencies": {
@@ -53,7 +52,8 @@
     "eslint-plugin-react-hooks": "7.0.0",
     "eslint-plugin-unicorn": "^56.0.0",
     "globals": "16.4.0",
-    "postcss": "^8.5.8",
+    "plasmo": "0.90.5",
+    "postcss": "^8.5.31",
     "prettier": "3.8.1",
     "stylelint": "^17.6.0",
     "stylelint-config-standard": "^40.0.0",
