@@ -180,6 +180,32 @@ export const btcStatusSchema = {
   }
 } as const;
 
+export const balancesQuerySchema = {
+  tags: ['balances'],
+  summary: '统一多链余额查询（EVM / Tron / BTC，批量 + 缓存 + 限流）',
+  body: {
+    type: 'object',
+    description: '见 @plugin/shared balanceQueryRequestSchema'
+  }
+} as const;
+
+export const balancesStatusSchema = {
+  tags: ['balances'],
+  summary: '统一余额查询的限额、缓存与上游配置探测',
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        families: { type: 'array', items: { type: 'string' } },
+        maxAddressesPerChain: { type: 'number' },
+        cache: { type: 'object', additionalProperties: true },
+        rateLimit: { type: 'object', additionalProperties: true },
+        upstream: { type: 'object', additionalProperties: true }
+      }
+    }
+  }
+} as const;
+
 export const authChallengeSchema = {
   tags: ['auth'],
   summary: '创建一次性登录 challenge（SIWE 风格消息）',

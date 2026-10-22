@@ -3,6 +3,7 @@ export * from './evm/builtinEvmChains.js';
 export * from './errors/app.js';
 export * from './errors/eip1193.js';
 export * from './http/auth.js';
+export * from './http/balances.js';
 export * from './http/btcExplorer.js';
 export * from './http/evmBatchSender.js';
 export * from './http/evmBalanceReader.js';
