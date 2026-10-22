@@ -8,11 +8,20 @@ import { consumeAuthRateLimit } from '../auth/authRateLimit.js';
 import {
   AuthError,
   createAuthChallenge,
-  getBearerToken,
-  getSessionFromToken,
   revokeSession,
   verifyAuthChallenge
 } from '../auth/authService.js';
+import { createCsrfToken } from '../auth/csrf.js';
+import {
+  csrfTokenFor,
+  getRequestAuth,
+  hasValidCsrf
+} from '../auth/sessionAuth.js';
+import {
+  clearSessionCookie,
+  getSessionCookieToken,
+  setSessionCookie
+} from '../auth/sessionCookie.js';
 import { isCorsOriginAllowed } from '../config/cors.js';
 import { setRateLimitHeaders } from '../security/rateLimit.js';
 import {
@@ -23,9 +32,10 @@ import {
 } from '../swagger/routeSchemas.js';
 
 /**
- * Auth 路由：challenge → 钱包 personal_sign → verify → Bearer 会话。
+ * Auth 路由：challenge → 钱包 personal_sign → verify → 会话。
  *
- * 调用链：Web `/account` 页；`routes/tx.ts` 复用 Bearer 会话。
+ * 调用链：Web `/account` 页；`routes/tx.ts` / `routes/balances.ts` 复用会话。
+ * 浏览器（带 Origin）走 HttpOnly Cookie + CSRF；无 Origin 的 API 客户端继续拿 Bearer token。
  * 安全边界：不接收私钥/助记词；签名只用于一次性 challenge 校验，不落库、不写日志。
  * challenge / verify 带按 IP 限流；非白名单 Origin 直接拒绝，避免任意站点获取会话。
  */
@@ -134,7 +144,23 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
       try {
         const result = await verifyAuthChallenge(parsed.data);
-        request.log.info({ address: result.address }, 'auth_session_created');
+        const csrfToken = createCsrfToken(result.sessionToken);
+        if (request.headers.origin) {
+          setSessionCookie(reply, result.sessionToken, result.expiresAt);
+          request.log.info(
+            { address: result.address, sessionMode: 'cookie' },
+            'auth_session_created'
+          );
+          return {
+            address: result.address,
+            expiresAt: result.expiresAt,
+            csrfToken
+          };
+        }
+        request.log.info(
+          { address: result.address, sessionMode: 'bearer' },
+          'auth_session_created'
+        );
         return result;
       } catch (e) {
         if (e instanceof AuthError) {
@@ -156,15 +182,19 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       reply.header('cache-control', 'no-store');
 
-      const token = getBearerToken(request.headers.authorization);
-      const session = token ? getSessionFromToken(token) : null;
-      if (!session) {
+      const auth = getRequestAuth(request);
+      if (!auth) {
+        if (getSessionCookieToken(request)) {
+          clearSessionCookie(reply);
+        }
         return reply.code(401).send({ error: 'unauthorized' });
       }
+      const csrfToken = csrfTokenFor(auth);
       return {
-        address: session.address,
-        chainId: session.chainId,
-        expiresAt: new Date(session.expiresAt).toISOString()
+        address: auth.session.address,
+        chainId: auth.session.chainId,
+        expiresAt: new Date(auth.session.expiresAt).toISOString(),
+        ...(csrfToken ? { csrfToken } : {})
       };
     }
   );
@@ -175,10 +205,18 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       reply.header('cache-control', 'no-store');
 
-      const token = getBearerToken(request.headers.authorization);
-      if (token) {
-        revokeSession(token);
+      const auth = getRequestAuth(request);
+      if (auth) {
+        if (!hasValidCsrf(request, auth)) {
+          request.log.warn(
+            { sessionMode: auth.source },
+            'auth_logout_csrf_rejected'
+          );
+          return reply.code(403).send({ error: 'csrf_invalid' });
+        }
+        revokeSession(auth.token);
       }
+      clearSessionCookie(reply);
       return { ok: true as const };
     }
   );

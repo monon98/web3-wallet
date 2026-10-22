@@ -11,7 +11,7 @@ import { getAddress, isAddress } from 'viem';
  *
  * 调用链：`app/balances/{evm,tron,btc}/page.tsx` → `components/balances/balancesFamilyPage.tsx`
  * → 本模块 → `POST /api/v1/balances/query`。每页只提交当前链的一个 group。
- * 只发送公开地址；可选携带 sessionStorage 中的 Bearer 会话以获得更高限额。
+ * 只发送公开地址；浏览器自动携带 HttpOnly Cookie 会话以获得更高限额。
  * 地址在这里做基础格式校验与去重，服务端仍会做完整校验（Tron / BTC 含校验和）。
  */
 
@@ -237,27 +237,20 @@ function parseErrorBody(text: string): ErrorBody | null {
   }
 }
 
-/** 调用统一余额接口；非 2xx 时抛出带错误码的 `BalancesApiError`。 */
+/** 调用统一余额接口；HttpOnly Cookie 会自动随请求发送，非 2xx 时抛 `BalancesApiError`。 */
 export async function queryBalances(
   apiBase: string,
   request: BalanceQueryRequest,
-  token: string | null,
   signal?: AbortSignal
 ): Promise<BalanceQueryResponse> {
   if (!apiBase) {
     throw new BalancesApiError('api_base_missing', 0);
   }
 
-  const headers: Record<string, string> = {
-    'content-type': 'application/json'
-  };
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
-
   const res = await fetch(`${apiBase}/api/v1/balances/query`, {
     method: 'POST',
-    headers,
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(request),
     signal
   });

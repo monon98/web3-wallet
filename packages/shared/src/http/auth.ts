@@ -26,19 +26,26 @@ export const authVerifyRequestSchema = z.object({
 
 export type AuthVerifyRequest = z.infer<typeof authVerifyRequestSchema>;
 
+/**
+ * POST /api/v1/auth/verify 响应。
+ * - 浏览器（带 Origin）：服务端写 HttpOnly Cookie，返回 `csrfToken`，不回传 sessionToken；
+ * - 非浏览器 / API 客户端：返回 `sessionToken`，继续用 Bearer。
+ */
 export const authVerifyResponseSchema = z.object({
   address: z.string().min(1),
-  sessionToken: z.string().min(1),
+  sessionToken: z.string().min(1).optional(),
+  csrfToken: z.string().min(1).optional(),
   expiresAt: z.string().min(1)
 });
 
 export type AuthVerifyResponse = z.infer<typeof authVerifyResponseSchema>;
 
-/** GET /api/v1/auth/me（示例形状，业务字段后续扩展） */
+/** GET /api/v1/auth/me；Cookie 会话会额外返回 CSRF token。 */
 export const meResponseSchema = z.object({
   address: z.string().min(1).optional(),
   chainId: z.number().int().positive().optional(),
-  expiresAt: z.string().min(1).optional()
+  expiresAt: z.string().min(1).optional(),
+  csrfToken: z.string().min(1).optional()
 });
 
 export type MeResponse = z.infer<typeof meResponseSchema>;

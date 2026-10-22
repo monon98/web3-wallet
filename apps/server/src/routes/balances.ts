@@ -5,7 +5,12 @@ import {
 } from '@plugin/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
-import { getBearerToken, getSessionFromToken } from '../auth/authService.js';
+import { getBearerToken } from '../auth/authService.js';
+import { getRequestAuth } from '../auth/sessionAuth.js';
+import {
+  clearSessionCookie,
+  getSessionCookieToken
+} from '../auth/sessionCookie.js';
 import { getBalanceCacheOptions } from '../balances/balanceCache.js';
 import {
   BalanceQueryServiceError,
@@ -36,6 +41,7 @@ import {
  *
  * - `POST /api/v1/balances/query`：EVM / Tron / BTC 统一编排；登录可选，登录后限额更高。
  * - `GET /api/v1/balances/status`：限额、缓存与上游配置探测（不含密钥）。
+ * 会话：浏览器 HttpOnly Cookie 或 Bearer；本接口只读，不要求 CSRF 头。
  * 安全边界：只接收公开地址，不接触私钥 / 助记词；日志只记录数量、耗时与状态。
  */
 
@@ -44,12 +50,20 @@ const balancesRoutes: FastifyPluginAsync = async (app) => {
     '/api/v1/balances/query',
     { bodyLimit: 64 * 1024, schema: balancesQuerySchema },
     async (request, reply) => {
-      const token = getBearerToken(request.headers.authorization);
-      const session = token ? getSessionFromToken(token) : null;
-      if (token && !session) {
-        return reply.code(401).send({ error: 'unauthorized' });
+      const cookieToken = getSessionCookieToken(request);
+      const requestAuth = getRequestAuth(request);
+      const bearerToken = getBearerToken(request.headers.authorization);
+      if (!requestAuth) {
+        // 过期 Cookie 不阻塞匿名查询：清掉后按匿名限额继续；无效 Bearer 仍返回 401。
+        if (cookieToken) {
+          clearSessionCookie(reply);
+        }
+        if (bearerToken) {
+          return reply.code(401).send({ error: 'unauthorized' });
+        }
       }
 
+      const session = requestAuth?.session;
       const auth = session ? 'session' : 'anonymous';
       const limits = getBalanceRateLimits();
       const limit =

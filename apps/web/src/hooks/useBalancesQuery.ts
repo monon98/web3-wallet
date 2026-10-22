@@ -1,6 +1,4 @@
-import { clearAuthSessionToken, readAuthSessionToken } from '@/lib/authSession';
 import {
-  BalancesApiError,
   describeBalancesError,
   queryBalances
 } from '@/lib/balancesApi';
@@ -8,7 +6,8 @@ import type { BalanceQueryRequest, BalanceQueryResponse } from '@plugin/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * `/balances` 页的查询状态机：取消上一次请求、可选 Bearer 会话、401 自动降级为匿名。
+ * `/balances` 页的查询状态机：取消上一次请求；浏览器自动携带 HttpOnly Cookie 会话。
+ * 服务端对过期 Cookie 会清除并按匿名限额继续，因此前端无需再读取 token。
  * 只保存公开查询结果；不接触钱包私钥或签名。
  */
 
@@ -44,35 +43,8 @@ export function useBalancesQuery(apiBase: string): {
       setNotice(null);
       setResult(null);
 
-      const token = readAuthSessionToken();
       try {
-        let data: BalanceQueryResponse;
-        try {
-          data = await queryBalances(
-            apiBase,
-            request,
-            token,
-            controller.signal
-          );
-        } catch (e) {
-          if (
-            token &&
-            e instanceof BalancesApiError &&
-            e.code === 'unauthorized'
-          ) {
-            clearAuthSessionToken();
-            data = await queryBalances(
-              apiBase,
-              request,
-              null,
-              controller.signal
-            );
-            setNotice('登录会话已失效，已改用匿名限额查询。');
-          } else {
-            throw e;
-          }
-        }
-
+        const data = await queryBalances(apiBase, request, controller.signal);
         if (!controller.signal.aborted) {
           setResult(data);
         }

@@ -48,6 +48,9 @@
 - **0.54** · 2026-10-22
   P4-2 安全自检：CORS 改为 **`SERVER_CORS_ORIGINS` 白名单**（开发默认 localhost:3000；生产未配置不放行；auth challenge / verify 对非白名单 Origin 返回 403）；auth challenge / verify 新增按 IP 限流（`SERVER_AUTH_RATE_LIMIT_PER_MINUTE`，默认 20 次/分钟）；所有 API 响应补安全头，auth 响应 `cache-control: no-store`；access log 改记路由模板，Pino redaction 扩展；`x-request-id` 白名单校验；`SERVER_TRUST_PROXY` 默认关闭。依赖升级 Next **16.4.2**、Fastify **5.12.7**、`@fastify/cors` **11.3.1**、`@fastify/swagger` **9.9.2**、`@fastify/swagger-ui` **6.1.2**、tronweb **6.5.1**，并用 `pnpm.overrides` 锁定 axios / fast-uri / ws / follow-redirects / sass / @parcel/watcher 等修复版本；**`pnpm audit --prod` 0 漏洞**，Plasmo 移至扩展 devDependencies。新增 `authSecurity.test.ts` 与 [security.md](./security.md)，服务端测试 14 项通过。§5.4、§6、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[security.md](./security.md) 同步；Cookie / CSRF / 持久化仍归 P4-5。
 
+- **0.55** · 2026-10-22
+  P4-5 会话安全生产化：浏览器 `POST /api/v1/auth/verify` 改为写入 **HttpOnly `wallet_session` Cookie**（默认 `SameSite=Lax`、生产 `Secure`），响应返回 `csrfToken` 且不再下发 sessionToken；`GET /api/v1/auth/me` 对 Cookie 会话返回 CSRF token；`POST /api/v1/tx/broadcast` 与 `POST /api/v1/auth/logout` 校验 `x-csrf-token`（HMAC(SESSION_SECRET, sessionToken)）。无 Origin 的 API 客户端保留 Bearer。会话新增 **`SERVER_SESSION_STORE=file`** 原子文件持久化（生产默认，`SERVER_SESSION_FILE` 默认 `logs/sessions.json`），`SESSION_SECRET` 生产必填；CORS 改为 `credentials=true` 并放行 `x-csrf-token`。Web `/account`、`/balances` 移除 `sessionStorage`，CSRF token 只存页面内存；新增 `@fastify/cookie`、`sessionCookie.ts` / `sessionAuth.ts` / `csrf.ts` / `sessionStore.ts` 与 `sessionStore.test.ts`，服务端测试 17 项通过。§5.2、§5.4、§6、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[web.md](./web.md)、[security.md](./security.md)、[.env.example](../../.env.example) 同步；多实例共享会话与 Web CSP 仍待 P4-4 / 后续。
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -385,17 +388,17 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 以下为资源语义；已实现路径以 `/api/v1/*` 为准，规划项单独标注。
 
-- **Auth（MVP 已实现）**：
+- **Auth（MVP 已实现，P4-5 Cookie 化）**：
   - `POST /api/v1/auth/challenge` → 服务端生成一次性 SIWE 风格消息（5 分钟过期）。
-  - `POST /api/v1/auth/verify` → 提交地址 + `personal_sign` 签名 → 签发 **Bearer 会话**（24 小时）。
-  - `GET /api/v1/auth/me` → 当前会话地址 / chainId / 过期时间。
-  - `POST /api/v1/auth/logout` → 注销 Bearer 会话（幂等）。
-  - 当前 challenge / session 存于**进程内存**，服务重启失效；Web 用 `sessionStorage` 保存 Bearer token。CORS 已改为 `SERVER_CORS_ORIGINS` 白名单，challenge / verify 已按 IP 限流；生产化仍需持久化、HttpOnly Cookie / CSRF 与 Web CSP（见 [BACKLOG.md](./BACKLOG.md) P4-5、[security.md](./security.md)）。
+  - `POST /api/v1/auth/verify` → 提交地址 + `personal_sign` 签名。带 `Origin` 的浏览器请求写入 **HttpOnly Cookie**（24 小时）并返回 `csrfToken`，不回传 sessionToken；无 `Origin` 的 API 客户端仍签发 **Bearer token**。
+  - `GET /api/v1/auth/me` → 当前会话地址 / chainId / 过期时间；Cookie 会话额外返回 `csrfToken`。
+  - `POST /api/v1/auth/logout` → 注销会话（幂等）；Cookie 会话要求 `x-csrf-token`。
+  - challenge 存于进程内存；会话默认文件持久化（`SERVER_SESSION_STORE=file`，生产默认），服务重启不丢；Web 不再使用 `sessionStorage`。CORS 使用 `SERVER_CORS_ORIGINS` 白名单并允许凭据；challenge / verify 按 IP 限流。多实例会话共享与 Web CSP 仍待后续项。
 - **交易广播（MVP 已实现，EVM only）**：
-  - `POST /api/v1/tx/broadcast` → JSON `{ chainId, signedTransaction }`；要求 Bearer 会话；校验 raw tx 的 `chainId`、签名者地址与 `SERVER_RPC_URL` 的 `eth_chainId`，再调用 `eth_sendRawTransaction`。
+  - `POST /api/v1/tx/broadcast` → JSON `{ chainId, signedTransaction }`；要求 Cookie 会话 + `x-csrf-token`（或 Bearer 会话）；校验 raw tx 的 `chainId`、签名者地址与 `SERVER_RPC_URL` 的 `eth_chainId`，再调用 `eth_sendRawTransaction`。
 - **统一多链余额查询（P1 已实现）**：
   - `POST /api/v1/balances/query` → JSON 可选 `evm`（`chainId` / `addresses` / `includeTokens`）、`tron`（`addresses` / `includeTokens`）、`btc`（`addresses`）三组，至少一组；每组 **1–20** 个地址。三组**并行**执行，单条链失败写入 `errors[]`，单地址失败保留在行内 `error`，不阻断其它结果；响应含 `requestId`、`partial`、`durationMs`、`auth` 与各链结果。Web 正式页按链拆分路由，每页只传当前链一个 group；统一 API 仍支持三组同时查询。
-  - 鉴权**可选**：无 Bearer 为匿名；有效 Bearer 标记 `auth: "session"`；无效 Bearer 返回 `401 unauthorized`。默认限流 **匿名 30 次/分钟/IP、登录 120 次/分钟/会话**，响应带 `x-ratelimit-*`；超限返回 `429 rate_limited` 与 `retryAfterMs`。
+  - 鉴权**可选**：无会话为匿名；有效 Cookie / Bearer 会话标记 `auth: "session"`；无效 Bearer 返回 `401 unauthorized`，过期 Cookie 会被清除并按匿名继续。本接口只读，不要求 CSRF 头。默认限流 **匿名 30 次/分钟/IP、登录 120 次/分钟/会话**，响应带 `x-ratelimit-*`；超限返回 `429 rate_limited` 与 `retryAfterMs`。
   - 结果缓存键为「链 + 地址集合 + 选项」，默认**新鲜 15s、过期保留 5min**；上游失败时可回退 `stale` 并在 `meta.cached` / `meta.stale` / `meta.cacheAgeMs` 标记。
   - EVM 原生余额仍为 **RPC 优先、Etherscan 兜底**；ERC-20 仍为 **Etherscan-only**，服务端 token 缓存默认新鲜 60s / stale 30min，不可达时行内返回 `etherscan_unreachable`（含冷却提示），不中断原生余额。
   - `GET /api/v1/balances/status` → 返回每链地址上限、缓存 TTL、匿名 / 登录限额与上游配置（RPC / Etherscan / Tron Key / BTC 自定义端点，以及 Etherscan 冷却剩余时间）；不含密钥。
@@ -458,7 +461,11 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `SERVER_BALANCE_AUTH_RATE_LIMIT_PER_MINUTE`   | （可选）登录会话查询限额（次/分钟/会话），默认 `120`                                                                                                                               |
 | `SERVER_AUTH_RATE_LIMIT_PER_MINUTE`           | （可选）auth challenge / verify 每 IP 限额（次/分钟），默认 `20`                                                                                                                   |
 | `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
-| `SESSION_SECRET` / OAuth 等                   | **预留**：持久化 / Cookie 会话或第三方登录时使用；当前 Bearer token 为进程内随机 token，不读取该变量                                                                               |
+| `SESSION_SECRET`                              | CSRF token HMAC 密钥；生产**必填**（缺失启动失败），开发使用进程级随机 fallback                                                                                                    |
+| `SERVER_SESSION_STORE`                        | 会话存储：`memory` / `file`；开发默认 `memory`，生产默认 `file`                                                                                                                    |
+| `SERVER_SESSION_FILE`                         | 文件模式路径，默认 `logs/sessions.json`（相对服务端运行目录）；多实例不可共用本地文件                                                                                              |
+| `SERVER_COOKIE_SAMESITE`                      | 会话 Cookie `SameSite`：`lax`（默认）/ `strict` / `none`；跨站部署用 `none`                                                                                                        |
+| `SERVER_COOKIE_SECURE`                        | 会话 Cookie `Secure`；开发默认 `false`，生产默认 `true`；`SameSite=None` 时必须开启                                                                                                |
 
 服务端启动时自动加载 `.env`：优先当前工作目录，其次仓库根（`pnpm dev:server` 的 cwd 为 `apps/server`）；使用 Node 内置 `process.loadEnvFile`，**已存在的进程环境变量优先**，不覆盖 CI / 生产注入。`.env` 勿提交仓库。
 
@@ -471,16 +478,17 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | 恶意网页冒充 bridge  | origin 白名单、扩展 ID 校验、challenge-nonce                                                  |
 | 恶意站点跨域读取 API | 服务端 `SERVER_CORS_ORIGINS` 白名单；auth 路由对非白名单 `Origin` 返回 403                    |
 | 日志泄露敏感数据     | Pino redaction；access log 只记录路由模板；不记录 raw tx / token / 地址查询串                 |
-| 会话 token 泄露      | 32 字节随机 token，服务端仅存 SHA-256 摘要；auth 响应 `no-store`                              |
+| 会话 token 泄露      | 32 字节随机 token，服务端仅存 SHA-256 摘要；浏览器写 HttpOnly Cookie；auth 响应 `no-store`    |
+| CSRF                 | Cookie 会话写操作要求 `x-csrf-token`（HMAC 绑定 sessionToken）；`SameSite` 默认 Lax；CORS 白名单 |
 | 暴力 / 资源滥用      | 余额按 IP / 会话限流；auth challenge / verify 按 IP 限流；固定窗口 + 桶上限                   |
 | 代理伪造客户端 IP    | `SERVER_TRUST_PROXY` 默认关闭；仅可信反向代理后开启                                           |
-| XSS 窃取会话         | 当前 Web Bearer 在 `sessionStorage`；P4-5 迁移 HttpOnly Cookie + CSP + 减少内联脚本           |
+| XSS 窃取会话         | Cookie 为 HttpOnly，XSS 不能直接读 token；仍需补 Web CSP 并减少内联脚本                       |
 | 扩展权限过大         | `host_permissions` 最小化；按需申请                                                           |
 | 钓鱼签名             | 签名 UI 展示解码后的合约、函数、金额、收款地址；高危操作二次确认                              |
 | 服务端误用私钥       | 架构上服务端不持有用户私钥；代码审查与密钥管理仅针对服务账户                                  |
 | 依赖供应链漏洞       | Next / Fastify / `@fastify/*` 升级；`pnpm.overrides` 锁定修复版本；`pnpm audit --prod` 0 漏洞 |
 
-> **当前登录 MVP 的折中**：Web 将 Bearer token 放在 `sessionStorage`，便于本地跨端口联调（Web `3000` ↔ API `8787`）；服务端会话为进程内存。CORS 已改为白名单、auth / 余额已加限流；生产前仍需迁移 HttpOnly Cookie + CSRF、持久化会话并补 Web CSP（见 [BACKLOG.md](./BACKLOG.md) P4-5 与 [security.md](./security.md)）。
+> **当前登录会话（P4-5）**：Web 使用 HttpOnly Cookie，页面只在内存保存 `/auth/me` 返回的 CSRF token；同站跨端口联调默认 `SameSite=Lax`，跨站部署需 `SameSite=None` + `Secure` + HTTPS。服务端会话默认文件持久化，单实例重启不丢；多实例共享与 Web CSP 仍待后续项（见 [BACKLOG.md](./BACKLOG.md) P4-4 与 [security.md](./security.md)）。
 
 ---
 
@@ -516,7 +524,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### 阶段 3：服务端（约 2–4 周）
 
-- 基于 **Fastify** 实现 Auth、ChainGateway、业务 API 骨架；测试网配置（Auth + tx 广播 MVP、统一余额查询 / 进程内限流与缓存已落地；持久化 / 多实例共享待补）
+- 基于 **Fastify** 实现 Auth、ChainGateway、业务 API 骨架；测试网配置（Auth + tx 广播 MVP、统一余额查询 / 进程内限流与缓存已落地；会话已支持文件持久化，多实例共享待补）
 
 ### 阶段 4：合约（持续）
 
@@ -524,7 +532,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### 阶段 5：质量与发布（持续）
 
-- E2E、商店与运维监控；安全自检首轮已完成（[security.md](./security.md)），生产级会话 / Cookie / CSRF 归 P4-5
+- E2E、商店与运维监控；安全自检首轮已完成（[security.md](./security.md)），Cookie / CSRF / 文件持久化已由 P4-5 落地，Web CSP 仍待补
 
 **依赖顺序**：阶段 0 → 阶段 1 →（阶段 4 最小合约 + 阶段 3 读链可并行）→ 阶段 2 全链路 → 迭代扩展。
 
@@ -540,7 +548,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 - **EVM 目标链**：`CHAIN_ID`、测试网/主网及 **RPC 供应商**（或自建节点）
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
 - **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
-- **Auth 会话生产化**：当前为内存 Bearer + Web `sessionStorage`；需决定 Redis / DB 持久化、HttpOnly Cookie / CSRF、多实例共享与限流策略
+- **Auth 会话**：P4-5 已完成 HttpOnly Cookie + CSRF + 单实例文件持久化；仍待决定 **Redis / DB 多实例共享**、Web CSP 与 cross-site Cookie 的最终部署拓扑（见 P4-4）。
 - **批量地址查询（已拍板，P1 默认策略）**：统一入口 `POST /api/v1/balances/query`；每链 1–20 个地址；匿名 30 次/分钟/IP、登录 120 次/分钟/会话；结果缓存 15s、过期保留 5min；匿名可用，登录提高限额。当前限流 / 缓存为**进程内存**，多实例部署需替换为 Redis 等共享实现（见 P4-4 / P4-5）。
 - **ERC-4337（账户抽象）— 待办调研**：评估 **UserOperation** / **Bundler** / **Paymaster** / 智能合约账户与 **EntryPoint** 在本项目中的适用场景。  
   重点：**资金分散与归集**（尤其原生币无法像 ERC-20 那样单合约 `transferFrom` 多源拉取的前提下，AA 能否改善批量体验、代付 gas、与插件/服务端托管边界如何划分）。  
@@ -564,11 +572,11 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询入口**（链选择卡片），以及三张独立查询页 [`/balances/evm`](../../apps/web/src/app/balances/evm/page.tsx)、[`/balances/tron`](../../apps/web/src/app/balances/tron/page.tsx)、[`/balances/btc`](../../apps/web/src/app/balances/btc/page.tsx)（每页只提交当前链一个 group；地址去重 / 校验、取消、分页 / CSV 导出、空态 / 部分失败提示、原始 JSON 调试），[`/account`](../../apps/web/src/app/account/page.tsx) **登录与交易广播**（challenge → `personal_sign` → Bearer 会话 → `eth_signTransaction` → 服务端广播）。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询入口**（链选择卡片），以及三张独立查询页 [`/balances/evm`](../../apps/web/src/app/balances/evm/page.tsx)、[`/balances/tron`](../../apps/web/src/app/balances/tron/page.tsx)、[`/balances/btc`](../../apps/web/src/app/balances/btc/page.tsx)（每页只提交当前链一个 group；地址去重 / 校验、取消、分页 / CSV 导出、空态 / 部分失败提示、原始 JSON 调试），[`/account`](../../apps/web/src/app/account/page.tsx) **登录与交易广播**（challenge → `personal_sign` → HttpOnly Cookie 会话 → `eth_signTransaction` → 服务端广播；CSRF token 仅存页面内存）。
 
-[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，Bearer 会话、CORS 白名单与 auth 限流）、**统一余额查询**（`POST /api/v1/balances/query`、`GET /api/v1/balances/status`，可选鉴权、进程内限流 / 缓存、按链 / 按地址部分失败）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、ERC-20 持仓与 stale 缓存、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。集成测试覆盖统一查询成功 / 部分失败 / 上游不可达、鉴权、限流、ERC-20 stale 回退，以及 CORS / Origin 拒绝与安全响应头（`pnpm --filter @plugin/server test`）。
+[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，浏览器 HttpOnly Cookie + CSRF、API 客户端 Bearer、CORS 白名单与 auth 限流、会话文件持久化）、**统一余额查询**（`POST /api/v1/balances/query`、`GET /api/v1/balances/status`，可选鉴权、进程内限流 / 缓存、按链 / 按地址部分失败）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、ERC-20 持仓与 stale 缓存、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。服务端 17 项测试覆盖统一查询成功 / 部分失败 / 上游不可达、鉴权、限流、ERC-20 stale 回退、Cookie / CSRF、Bearer 兼容、会话文件存储，以及 CORS / Origin 拒绝与安全响应头（`pnpm --filter @plugin/server test`）。
 
-**Auth 与 tx 广播已具备 MVP，统一余额查询已完成 P1 产品化，P4-2 安全自检已完成首轮**（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计 0 漏洞）；业务 API、多实例共享限流 / 缓存与生产化会话仍待迭代（见 [BACKLOG.md](./BACKLOG.md) P4-1 / P4-3 / P4-4 / P4-5 与 [security.md](./security.md)）。
+**Auth 与 tx 广播已具备 MVP，统一余额查询已完成 P1 产品化，P4-2 安全自检与 P4-5 会话安全生产化已完成**（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计 0 漏洞、HttpOnly Cookie + CSRF + 文件持久化）；业务 API、多实例共享限流 / 缓存与 Web CSP 仍待迭代（见 [BACKLOG.md](./BACKLOG.md) P4-1 / P4-3 / P4-4 与 [security.md](./security.md)）。
 
 ### 合约
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import { bridgeMethodSchema } from '@plugin/shared';
 import Fastify, {
@@ -9,6 +10,9 @@ import Fastify, {
   type FastifyServerOptions
 } from 'fastify';
 
+import { assertCsrfSecretConfigured } from './auth/csrf.js';
+import { assertSessionCookieConfig } from './auth/sessionCookie.js';
+import { initializeSessionStore } from './auth/sessionStore.js';
 import { getEtherscanApiKey, getServerRpcUrl } from './config/chain.js';
 import { isCorsOriginAllowed } from './config/cors.js';
 import authRoutes from './routes/auth.js';
@@ -31,7 +35,8 @@ import { healthSchema, metaSchema } from './swagger/routeSchemas.js';
  * 后用 `app.inject` 调用路由。这样余额查询集成测试无需启动真实端口或外部网络。
  *
  * 安全边界：
- * - CORS 只放行 `SERVER_CORS_ORIGINS`（开发默认 localhost:3000）；
+ * - CORS 只放行 `SERVER_CORS_ORIGINS`（开发默认 localhost:3000），并允许凭据；
+ * - 浏览器会话走 HttpOnly Cookie + CSRF，API 客户端仍可用 Bearer；
  * - 所有响应补基础安全头；access log 只记录路由模板，不记录查询串中的地址；
  * - `SERVER_TRUST_PROXY=1` 时才信任 `X-Forwarded-For`，避免客户端伪造限流 IP。
  */
@@ -68,6 +73,14 @@ export async function buildApp(
   const app = options.loggerInstance
     ? Fastify({ ...baseOptions, loggerInstance: options.loggerInstance })
     : Fastify({ ...baseOptions, logger: options.logger ?? false });
+
+  // P4-5：生产环境缺 SESSION_SECRET / Cookie 配置无效时直接启动失败；
+  // 会话文件在启动阶段写入一次，避免运行中才发现目录不可写。
+  assertCsrfSecretConfigured();
+  assertSessionCookieConfig();
+  initializeSessionStore();
+
+  await app.register(cookie);
 
   // API 响应不主动内嵌、不嗅探 MIME；Swagger UI 仍可在开发态独立打开。
   app.addHook('onSend', async (_request, reply, payload) => {
@@ -107,10 +120,15 @@ export async function buildApp(
     origin: (origin, cb) => {
       cb(null, !origin || isCorsOriginAllowed(origin));
     },
-    credentials: false,
+    // P4-5：浏览器用 HttpOnly Cookie 会话；必须允许 credentials 且不能使用 `*`。
+    credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
-    // Web 通过 Authorization: Bearer 访问 auth / tx；余额查询也会携带可选会话。
-    allowedHeaders: ['content-type', 'authorization', 'x-request-id'],
+    allowedHeaders: [
+      'content-type',
+      'authorization',
+      'x-request-id',
+      'x-csrf-token'
+    ],
     exposedHeaders: [
       'x-ratelimit-limit',
       'x-ratelimit-remaining',

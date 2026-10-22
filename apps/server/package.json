@@ -11,13 +11,14 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx --test test/balances.test.ts test/authSecurity.test.ts",
+    "test": "tsx --test test/balances.test.ts test/authSecurity.test.ts test/sessionStore.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "pnpm -w exec prettier --write \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\"",
     "format:check": "pnpm -w exec prettier --check \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\""
   },
   "dependencies": {
+    "@fastify/cookie": "11.1.3",
     "@fastify/cors": "11.3.1",
     "@fastify/swagger": "9.9.2",
     "@fastify/swagger-ui": "6.1.2",

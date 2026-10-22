@@ -6,7 +6,7 @@ import { forwardToRpc } from './rpcForward.js';
 /**
  * 服务端 EVM 交易广播。
  *
- * 调用链：`routes/tx.ts`（Bearer 会话校验后）→ 本模块 → `SERVER_RPC_URL`。
+ * 调用链：`routes/tx.ts`（Cookie + CSRF 或 Bearer 会话校验后）→ 本模块 → `SERVER_RPC_URL`。
  * 安全边界：只接收**已签名 raw tx**，不接触私钥 / 助记词；不把 raw tx 写入日志。
  * 链一致性：先校验 raw tx 的 chainId 与请求一致，再校验 RPC `eth_chainId`，避免跨链广播。
  */

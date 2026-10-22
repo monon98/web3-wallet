@@ -29,7 +29,7 @@ function formatExpiry(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-/** `/account` 第 2 步：challenge → personal_sign → 服务端校验并建立 Bearer 会话。 */
+/** `/account` 第 2 步：challenge → personal_sign → 服务端校验并建立 HttpOnly Cookie 会话。 */
 export function AccountAuthSection({
   address,
   challenge,
@@ -46,7 +46,7 @@ export function AccountAuthSection({
   return (
     <PanelSection
       title="2. 登录（SIWE 风格消息）"
-      description="获取 challenge 后用钱包签名；服务端校验签名并签发 24 小时 Bearer 会话。">
+      description="获取 challenge 后用钱包签名；服务端校验签名并写入 24 小时 HttpOnly Cookie 会话。">
       {!address ? (
         <FieldHint className="mb-2">
           请先连接钱包，再获取登录消息；已有会话仍会显示在下方。

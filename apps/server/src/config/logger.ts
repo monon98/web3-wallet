@@ -60,6 +60,7 @@ export function createRootLogger(): pino.Logger {
       paths: [
         'req.headers.authorization',
         'req.headers.cookie',
+        "req.headers['x-csrf-token']",
         'err.config.url',
         'err.config.headers.authorization',
         'err.request.url',
@@ -70,6 +71,7 @@ export function createRootLogger(): pino.Logger {
         '*.apiKey',
         '*.api_key',
         '*.token',
+        '*.csrfToken',
         '*.accessToken',
         '*.refreshToken',
         '*.privateKey',

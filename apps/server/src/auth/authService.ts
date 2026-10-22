@@ -2,19 +2,26 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { getAddress, isAddress, verifyMessage } from 'viem';
 
 import { getDefaultWebOrigin } from '../config/cors.js';
+import {
+  deleteStoredSession,
+  getStoredSession,
+  pruneStoredSessions,
+  setStoredSession,
+  type StoredSession
+} from './sessionStore.js';
 
 /**
- * 登录 challenge / 会话存储（MVP，进程内存）。
+ * 登录 challenge / 会话签发。
  *
- * 调用链：`routes/auth.ts` → 本模块；`routes/tx.ts` 通过 `getSessionFromToken` 复用会话。
+ * 调用链：`routes/auth.ts` → 本模块；`routes/tx.ts` / `routes/balances.ts` 通过
+ * `sessionAuth.ts` 复用会话。challenge 仍为进程内存（5 分钟一次性），会话委托
+ * `sessionStore.ts`（生产默认文件持久化）。
  * 安全边界：只保存地址、链 ID、消息与过期时间；**不保存私钥 / 助记词 / 签名**。
- * 生产化：内存 Map 在重启后失效，且多实例不共享；后续应替换为 Redis / DB，并加限流。
  */
 
 const CHALLENGE_TTL_MS = 5 * 60_000;
 const SESSION_TTL_MS = 24 * 60 * 60_000;
 const MAX_CHALLENGES = 10_000;
-const MAX_SESSIONS = 10_000;
 
 type ChallengeRecord = {
   address: `0x${string}`;
@@ -23,14 +30,9 @@ type ChallengeRecord = {
   expiresAt: number;
 };
 
-export type AuthSession = {
-  address: `0x${string}`;
-  chainId: number;
-  expiresAt: number;
-};
+export type AuthSession = StoredSession;
 
 const challenges = new Map<string, ChallengeRecord>();
-const sessions = new Map<string, AuthSession>();
 
 export class AuthError extends Error {
   constructor(
@@ -48,11 +50,7 @@ function pruneExpired(now: number): void {
       challenges.delete(id);
     }
   }
-  for (const [tokenHash, session] of sessions) {
-    if (session.expiresAt <= now) {
-      sessions.delete(tokenHash);
-    }
-  }
+  pruneStoredSessions(now);
 }
 
 function normalizeAddress(address: string): `0x${string}` {
@@ -152,8 +150,9 @@ export function createAuthChallenge(params: {
 }
 
 /**
- * 校验 EIP-191 `personal_sign` 签名并签发 Bearer 会话 token。
+ * 校验 EIP-191 `personal_sign` 签名并签发会话 token。
  * challenge 无论成功与否都会删除；失败后需重新获取 challenge。
+ * token 只在这里返回一次；浏览器路径由 `routes/auth.ts` 写入 HttpOnly Cookie。
  */
 export async function verifyAuthChallenge(params: {
   challengeId: string;
@@ -192,16 +191,9 @@ export async function verifyAuthChallenge(params: {
     throw new AuthError('invalid_signature', 401);
   }
 
-  if (sessions.size >= MAX_SESSIONS) {
-    const oldest = sessions.keys().next().value;
-    if (typeof oldest === 'string') {
-      sessions.delete(oldest);
-    }
-  }
-
   const sessionToken = randomBytes(32).toString('hex');
   const expiresAt = new Date(now + SESSION_TTL_MS);
-  sessions.set(hashToken(sessionToken), {
+  setStoredSession(hashToken(sessionToken), {
     address,
     chainId: challenge.chainId,
     expiresAt: expiresAt.getTime()
@@ -227,20 +219,10 @@ export function getBearerToken(
 
 /** 读取并校验会话；过期或不存在时返回 null。 */
 export function getSessionFromToken(token: string): AuthSession | null {
-  const now = Date.now();
-  pruneExpired(now);
-  const session = sessions.get(hashToken(token));
-  if (!session) {
-    return null;
-  }
-  if (session.expiresAt <= now) {
-    sessions.delete(hashToken(token));
-    return null;
-  }
-  return session;
+  return getStoredSession(hashToken(token));
 }
 
 /** 注销会话；token 不存在时保持幂等。 */
 export function revokeSession(token: string): void {
-  sessions.delete(hashToken(token));
+  deleteStoredSession(hashToken(token));
 }

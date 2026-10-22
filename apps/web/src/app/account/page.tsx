@@ -15,11 +15,6 @@ import {
   type AuthChallenge,
   type StoredAuthSession
 } from '@/lib/accountApi';
-import {
-  clearAuthSessionToken,
-  readAuthSessionToken,
-  writeAuthSessionToken
-} from '@/lib/authSession';
 import { getPublicApiBaseUrl } from '@/lib/publicApi';
 import { PanelSection } from '@plugin/ui';
 import Link from 'next/link';
@@ -29,7 +24,8 @@ import { getAddress, isAddress, numberToHex, parseEther } from 'viem';
 /**
  * 登录与交易广播联调页。
  *
- * 登录：服务端 challenge → 钱包 personal_sign → 服务端校验 → Bearer 会话（sessionStorage）。
+ * 登录：服务端 challenge → 钱包 personal_sign → 服务端校验 → HttpOnly Cookie 会话；
+ * CSRF token 只保存在页面内存（刷新后从 `/auth/me` 恢复），不再写 sessionStorage。
  * 交易：服务端读 nonce / gas / gasPrice → 钱包 eth_signTransaction → 服务端广播。
  * 信任边界：私钥与助记词只在扩展内；本页只处理公开地址、签名和已签名 raw tx。
  */
@@ -66,21 +62,19 @@ export default function AccountPage() {
     if (!apiBase) {
       return;
     }
-    const token = readAuthSessionToken();
-    if (!token) {
-      return;
-    }
 
     let cancelled = false;
     void (async () => {
       try {
-        const me = await fetchAuthSession(apiBase, token);
+        const me = await fetchAuthSession(apiBase);
         if (!cancelled) {
-          setSession({ ...me, token });
+          setSession(me);
         }
       } catch {
-        // 服务重启或会话过期：清掉本地 token，不阻塞页面。
-        clearAuthSessionToken();
+        // 未登录 / 会话过期（HTTP 401）是正常状态；HttpOnly Cookie 由服务端清理。
+        if (!cancelled) {
+          setSession(null);
+        }
       }
     })();
 
@@ -96,9 +90,16 @@ export default function AccountPage() {
     }
 
     if (session && session.address !== connection.address) {
-      clearAuthSessionToken();
+      const previous = session;
       setSession(null);
       setAuthNotice('钱包地址已变化，请重新登录。');
+      if (apiBase) {
+        try {
+          await logoutAuthSession(apiBase, previous.csrfToken);
+        } catch {
+          setAuthError('旧登录会话注销失败，请刷新页面后重新登录。');
+        }
+      }
     }
 
     setChallenge(null);
@@ -177,21 +178,23 @@ export default function AccountPage() {
         signature
       });
 
-      let me = {
-        address: verified.address,
-        expiresAt: verified.expiresAt
-      };
+      let me = verified;
+      let cookieSessionRestored = true;
       try {
-        me = await fetchAuthSession(apiBase, verified.sessionToken);
+        me = await fetchAuthSession(apiBase);
       } catch {
-        // verify 已签发 token；/me 失败不阻断本次登录。
+        // Cookie 已由 verify 写入；/me 失败时仍可用 verify 的 CSRF token。
+        cookieSessionRestored = false;
       }
 
-      writeAuthSessionToken(verified.sessionToken);
-      setSession({ ...me, token: verified.sessionToken });
+      setSession(me);
       setChallenge(null);
       setSignature(null);
-      setAuthNotice('登录成功；现在可以签名并广播交易。');
+      setAuthNotice(
+        cookieSessionRestored
+          ? '登录成功；现在可以签名并广播交易。'
+          : '登录签名已校验，但 Cookie 会话未能恢复；请检查服务端 CORS / SameSite 配置。'
+      );
     } catch (e) {
       setAuthError(describeAccountError(e));
     } finally {
@@ -200,8 +203,7 @@ export default function AccountPage() {
   }
 
   function logout() {
-    const token = session?.token;
-    clearAuthSessionToken();
+    const csrfToken = session?.csrfToken;
     setSession(null);
     setChallenge(null);
     setSignature(null);
@@ -210,8 +212,8 @@ export default function AccountPage() {
     setTxNotice(null);
     setTxError(null);
     setAuthNotice('已退出登录。');
-    if (token && apiBase) {
-      void logoutAuthSession(apiBase, token).catch(() => {
+    if (csrfToken && apiBase) {
+      void logoutAuthSession(apiBase, csrfToken).catch(() => {
         setAuthNotice('本地会话已清除；服务端注销请求失败。');
       });
     }
@@ -302,7 +304,7 @@ export default function AccountPage() {
     try {
       const result = await broadcastSignedTransaction(
         apiBase,
-        session.token,
+        session.csrfToken,
         chainId,
         signedTx
       );
@@ -310,7 +312,6 @@ export default function AccountPage() {
       setTxNotice('服务端已广播交易。');
     } catch (e) {
       if (e instanceof Error && 'code' in e && e.code === 'unauthorized') {
-        clearAuthSessionToken();
         setSession(null);
         setAuthError('登录已失效，请重新登录。');
       }

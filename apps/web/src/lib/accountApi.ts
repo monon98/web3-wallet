@@ -5,6 +5,9 @@ import { getAddress, isAddress, toHex, type Address, type Hex } from 'viem';
  *
  * 调用链：`app/account/page.tsx` → 本模块 → Fastify `/api/v1/auth/*`、`/api/v1/tx/broadcast`、
  * `/api/v1/evm/rpc`。只传输公开地址、签名与已签名 raw tx；**不接触私钥 / 助记词**。
+ *
+ * 会话（P4-5）：服务端通过 HttpOnly Cookie 保存 token；本模块只在内存保存 `/me` 返回的
+ * `csrfToken`，写操作放在 `x-csrf-token` 头，不再使用 sessionStorage。
  */
 
 export class AccountApiError extends Error {
@@ -32,7 +35,7 @@ export type AuthSession = {
 };
 
 export type StoredAuthSession = AuthSession & {
-  token: string;
+  csrfToken: string;
 };
 
 export type TxBroadcastResult = {
@@ -92,7 +95,10 @@ async function requestJson(
 
   let response: Response;
   try {
-    response = await fetch(`${apiBase}${path}`, init);
+    response = await fetch(`${apiBase}${path}`, {
+      credentials: 'include',
+      ...init
+    });
   } catch {
     throw new AccountApiError(
       '无法连接服务端，请确认 Fastify 已启动。',
@@ -129,6 +135,8 @@ export function describeAccountError(error: unknown): string {
         return '签名地址与登录消息中的地址不一致。';
       case 'invalid_signature':
         return '签名校验失败，请重新签名。';
+      case 'csrf_invalid':
+        return '页面安全令牌已失效，请刷新页面后重试。';
       case 'rpc_not_configured':
         return '服务端未配置 SERVER_RPC_URL，无法读取链上参数或广播交易。';
       case 'rpc_unreachable':
@@ -182,7 +190,7 @@ export async function requestAuthChallenge(
 export async function verifyAuthSignature(
   apiBase: string,
   params: { challengeId: string; address: Address; signature: string }
-): Promise<{ address: Address; sessionToken: string; expiresAt: string }> {
+): Promise<StoredAuthSession> {
   const body = await requestJson(apiBase, '/api/v1/auth/verify', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -192,7 +200,7 @@ export async function verifyAuthSignature(
     !isRecord(body) ||
     typeof body.address !== 'string' ||
     !isAddress(body.address) ||
-    typeof body.sessionToken !== 'string' ||
+    typeof body.csrfToken !== 'string' ||
     typeof body.expiresAt !== 'string'
   ) {
     throw new AccountApiError(
@@ -203,16 +211,17 @@ export async function verifyAuthSignature(
   }
   return {
     address: getAddress(body.address),
-    sessionToken: body.sessionToken,
+    csrfToken: body.csrfToken,
     expiresAt: body.expiresAt
   };
 }
 
-function parseAuthSession(body: unknown): AuthSession {
+function parseAuthSession(body: unknown): StoredAuthSession {
   if (
     !isRecord(body) ||
     typeof body.address !== 'string' ||
     !isAddress(body.address) ||
+    typeof body.csrfToken !== 'string' ||
     typeof body.expiresAt !== 'string'
   ) {
     throw new AccountApiError('会话响应格式无效。', 200, 'invalid_response');
@@ -223,34 +232,33 @@ function parseAuthSession(body: unknown): AuthSession {
       typeof body.chainId === 'number' && Number.isInteger(body.chainId)
         ? body.chainId
         : undefined,
+    csrfToken: body.csrfToken,
     expiresAt: body.expiresAt
   };
 }
 
 export async function fetchAuthSession(
-  apiBase: string,
-  token: string
-): Promise<AuthSession> {
+  apiBase: string
+): Promise<StoredAuthSession> {
   const body = await requestJson(apiBase, '/api/v1/auth/me', {
-    method: 'GET',
-    headers: { authorization: `Bearer ${token}` }
+    method: 'GET'
   });
   return parseAuthSession(body);
 }
 
 export async function logoutAuthSession(
   apiBase: string,
-  token: string
+  csrfToken: string
 ): Promise<void> {
   await requestJson(apiBase, '/api/v1/auth/logout', {
     method: 'POST',
-    headers: { authorization: `Bearer ${token}` }
+    headers: { 'x-csrf-token': csrfToken }
   });
 }
 
 export async function broadcastSignedTransaction(
   apiBase: string,
-  token: string,
+  csrfToken: string,
   chainId: number,
   signedTransaction: string
 ): Promise<TxBroadcastResult> {
@@ -258,7 +266,7 @@ export async function broadcastSignedTransaction(
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${token}`
+      'x-csrf-token': csrfToken
     },
     body: JSON.stringify({ chainId, signedTransaction })
   });

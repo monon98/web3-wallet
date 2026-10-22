@@ -221,7 +221,8 @@ export const authChallengeSchema = {
 
 export const authVerifySchema = {
   tags: ['auth'],
-  summary: '校验 personal_sign 签名并签发 Bearer 会话',
+  summary:
+    '校验 personal_sign 签名；浏览器写 HttpOnly Cookie，API 客户端返回 Bearer token',
   body: {
     type: 'object',
     required: ['challengeId', 'address', 'signature'],
@@ -235,14 +236,15 @@ export const authVerifySchema = {
 
 export const authMeSchema = {
   tags: ['auth'],
-  summary: '读取当前 Bearer 会话',
+  summary: '读取当前 Cookie / Bearer 会话（Cookie 会话返回 csrfToken）',
   response: {
     200: {
       type: 'object',
       properties: {
         address: { type: 'string' },
         chainId: { type: 'integer' },
-        expiresAt: { type: 'string' }
+        expiresAt: { type: 'string' },
+        csrfToken: { type: 'string' }
       }
     },
     401: {
@@ -254,19 +256,23 @@ export const authMeSchema = {
 
 export const authLogoutSchema = {
   tags: ['auth'],
-  summary: '注销 Bearer 会话（幂等）',
+  summary: '注销 Cookie / Bearer 会话（幂等；Cookie 会话需 x-csrf-token）',
   response: {
     200: {
       type: 'object',
       properties: { ok: { type: 'boolean', const: true } },
       required: ['ok']
+    },
+    403: {
+      type: 'object',
+      properties: { error: { type: 'string' } }
     }
   }
 } as const;
 
 export const txBroadcastSchema = {
   tags: ['tx'],
-  summary: '广播已签名 EVM 交易（需 Bearer 会话）',
+  summary: '广播已签名 EVM 交易（Cookie 会话需 x-csrf-token）',
   body: {
     type: 'object',
     required: ['chainId', 'signedTransaction'],

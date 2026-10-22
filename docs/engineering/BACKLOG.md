@@ -12,7 +12,7 @@
 
 `P0（已完成）→ P1（已完成）→ P2 → P3 → P4`
 
-P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P2 / P3 依赖产品范围与合约主线决策。
+P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2 / P3 依赖产品范围与合约主线决策。
 
 ---
 
@@ -28,8 +28,8 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 
 说明：
 
-- 会话优先使用 **Bearer token**（Web `sessionStorage`），避免当前阶段引入 Cookie 跨域复杂度；生产化时再评估 HttpOnly Cookie + CSRF（见 P4）。
-- challenge / session 当前为**进程内存存储**，服务重启即失效；生产化需持久化 / Redis（见 P4-5）。
+- 会话已按 P4-5 改为 **HttpOnly Cookie + CSRF**（Web 不再使用 `sessionStorage`）；无 Origin 的 API 客户端仍可拿 Bearer token。
+- 会话默认文件持久化（`SERVER_SESSION_STORE=file`，生产默认）；challenge 仍为进程内存；多实例共享需 Redis / DB（见 P4-4）。
 - 交易广播当前只支持 **EVM**；Tron / BTC 广播需单独设计（见 P2 / 待拍板）。
 
 ---
@@ -81,7 +81,9 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 | P4-2 | 安全自检清单                                      | [x]  | 密钥边界、日志脱敏、CORS、CSRF、会话 / 限流、依赖审计逐项通过；清单见 [security.md](./security.md) |
 | P4-3 | 商店物料与首次运行引导                            | [ ]  | 商店页、隐私说明、备份与安全提示、安装 / 升级引导                                                  |
 | P4-4 | 监控与运维                                        | [ ]  | 错误率、上游限流、RPC / Etherscan / TronGrid / Esplora 可用性可观测                                |
-| P4-5 | 会话安全生产化（HttpOnly Cookie / CSRF / 持久化） | [ ]  | 不依赖 `sessionStorage`；跨站部署安全策略明确                                                      |
+| P4-5 | 会话安全生产化（HttpOnly Cookie / CSRF / 持久化） | [x]  | 不依赖 `sessionStorage`；跨站部署安全策略明确                                                      |
+
+> **P4-5 执行记录（2026-10-22）**：浏览器 `verify` 写 `wallet_session` HttpOnly Cookie（默认 `SameSite=Lax`、生产 `Secure`）；`/auth/me` 返回 CSRF token，`/tx/broadcast` 与 `/auth/logout` 校验 `x-csrf-token`；无 Origin 的 API 客户端仍走 Bearer。会话支持 `SERVER_SESSION_STORE=file` 原子落盘（默认 `logs/sessions.json`），生产缺 `SESSION_SECRET` 启动失败。CORS 改为允许凭据并放行 `x-csrf-token`。Web `/account` 与 `/balances` 已移除 `sessionStorage`。验证：server 17 项测试、`pnpm typecheck` / `lint` / `build`。跨站部署需同时设置 `SERVER_COOKIE_SAMESITE=none`、`SERVER_COOKIE_SECURE=1` 与 HTTPS；多实例会话共享仍归 P4-4。
 
 ---
 
