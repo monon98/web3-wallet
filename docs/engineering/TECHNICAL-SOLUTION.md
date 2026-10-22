@@ -42,6 +42,9 @@
 - **0.52** · 2026-10-20  
   服务端 / Web：打通 **钱包登录 → 签名 → 服务端广播** MVP——新增 `POST /api/v1/auth/challenge`、`POST /api/v1/auth/verify`、`GET /api/v1/auth/me`、`POST /api/v1/auth/logout`（一次性 challenge 5 分钟、Bearer 会话 24 小时、进程内存存储）；新增 `POST /api/v1/tx/broadcast`（Bearer 会话 + raw tx 发送方 / chainId / RPC 链校验，当前仅 EVM）；Web 新增 `/account` 联调页（EIP-6963 / `window.ethereum` → challenge → `personal_sign` → 会话 → `eth_signTransaction` → 服务端广播）；`@plugin/shared` 补齐 auth / tx 请求与响应 schema；新增 [BACKLOG.md](./BACKLOG.md) 记录 P0–P4 待实现事项；§5.2、§5.4、§6、§10 与 [server.md](./server.md)、[web.md](./web.md)、[shared.md](./shared.md)、[prd-server.md](../product/prd-server.md)、[prd-web.md](../product/prd-web.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步
 
+- **0.53** · 2026-10-22  
+  P1 余额查询产品化：新增 **`POST /api/v1/balances/query`**（EVM / Tron / BTC 统一编排，每组 ≤ 20 地址，三组并行，按链 / 按地址返回部分失败）与 **`GET /api/v1/balances/status`**；可选 Bearer 鉴权，匿名 / 登录分别限流（默认 30 / 120 次/分钟），结果缓存默认 15s、stale 保留 5min。ERC-20 在 **Etherscan-only** 前提下增加 token 缓存（新鲜 60s / stale 30min）、`ETHERSCAN_API_URL` 代理入口与冷却提示；Etherscan 不可达时不再中断原生余额，行内返回 `etherscan_unreachable`。Web `/balances` 作为**链选择入口**，新增 `/balances/evm`、`/balances/tron`、`/balances/btc` **独立查询页**：每页只提交当前链一个 group，保留地址去重 / 校验、请求取消、分页、CSV 导出、空态 / 错误态与原始 JSON 调试，避免三组表单和结果挤在同一页。新增可重复服务端集成测试（`pnpm --filter @plugin/server test`）并接入 CI。§5.2、§5.4、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[web.md](./web.md)、[shared.md](./shared.md)、PRD 同步；D-4 默认策略已拍板。
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -387,13 +390,19 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
   - 当前 challenge / session 存于**进程内存**，服务重启失效；Web 用 `sessionStorage` 保存 Bearer token。生产化需持久化、限流、HttpOnly Cookie / CSRF 与 CORS 收紧（见 [BACKLOG.md](./BACKLOG.md) P4-5）。
 - **交易广播（MVP 已实现，EVM only）**：
   - `POST /api/v1/tx/broadcast` → JSON `{ chainId, signedTransaction }`；要求 Bearer 会话；校验 raw tx 的 `chainId`、签名者地址与 `SERVER_RPC_URL` 的 `eth_chainId`，再调用 `eth_sendRawTransaction`。
-- **批量地址查询（规划）**：`POST /addresses/batch`（或等价路径）→ 批量查询多地址链上摘要（EVM / Tron / BTC 等，字段与限额见 PRD）。
+- **统一多链余额查询（P1 已实现）**：
+  - `POST /api/v1/balances/query` → JSON 可选 `evm`（`chainId` / `addresses` / `includeTokens`）、`tron`（`addresses` / `includeTokens`）、`btc`（`addresses`）三组，至少一组；每组 **1–20** 个地址。三组**并行**执行，单条链失败写入 `errors[]`，单地址失败保留在行内 `error`，不阻断其它结果；响应含 `requestId`、`partial`、`durationMs`、`auth` 与各链结果。Web 正式页按链拆分路由，每页只传当前链一个 group；统一 API 仍支持三组同时查询。
+  - 鉴权**可选**：无 Bearer 为匿名；有效 Bearer 标记 `auth: "session"`；无效 Bearer 返回 `401 unauthorized`。默认限流 **匿名 30 次/分钟/IP、登录 120 次/分钟/会话**，响应带 `x-ratelimit-*`；超限返回 `429 rate_limited` 与 `retryAfterMs`。
+  - 结果缓存键为「链 + 地址集合 + 选项」，默认**新鲜 15s、过期保留 5min**；上游失败时可回退 `stale` 并在 `meta.cached` / `meta.stale` / `meta.cacheAgeMs` 标记。
+  - EVM 原生余额仍为 **RPC 优先、Etherscan 兜底**；ERC-20 仍为 **Etherscan-only**，服务端 token 缓存默认新鲜 60s / stale 30min，不可达时行内返回 `etherscan_unreachable`（含冷却提示），不中断原生余额。
+  - `GET /api/v1/balances/status` → 返回每链地址上限、缓存 TTL、匿名 / 登录限额与上游配置（RPC / Etherscan / Tron Key / BTC 自定义端点，以及 Etherscan 冷却剩余时间）；不含密钥。
+  - 原分链端点（`/api/v1/evm/explorer/*`、`/api/v1/tron/explorer/*`、`/api/v1/btc/explorer/*`）保留，用于单链调试与兼容。
 - 业务资源：`/api/v1/...` 按领域再分。
 - **EVM 链网关（已实现骨架）**：
   - `POST /api/v1/evm/rpc`：向 `SERVER_RPC_URL` 转发 JSON-RPC（**方法白名单**，含常见只读与 `eth_sendRawTransaction`；批量请求最多 10 条）。
   - `GET /api/v1/evm/explorer/native-balance?address=&chainId=`：单地址原生币余额。配置 `SERVER_RPC_URL` 时**优先**经 RPC `eth_getBalance`（先校验 `eth_chainId` 与请求一致）；否则 / RPC 不可用时回退 **Etherscan V2**（[balance](https://docs.etherscan.io/api-reference/endpoint/balance)）。响应含 `source: "rpc" | "etherscan"`。
   - `POST /api/v1/evm/explorer/native-balances`：JSON `{ chainId, addresses }`，最多 **20** 个地址；数据源选择同上（RPC 批量走单次 JSON-RPC batch，Etherscan 走逗号分隔 `balance`），响应含 `source`。
-  - `POST /api/v1/evm/explorer/address-token-balances`：JSON `{ chainId, addresses, page?, offset? }`，每地址调用 [addresstokenbalance](https://docs.etherscan.io/api-reference/endpoint/addresstokenbalance)（**PRO**、供应商侧约 **2 次/秒**）；服务端**串行**并可用 `ETHERSCAN_PRO_MIN_INTERVAL_MS` 节流。该能力**仅依赖 Etherscan**；网络不可达时返回 `etherscan_unreachable`，并在 60s 内短路重试。
+  - `POST /api/v1/evm/explorer/address-token-balances`：JSON `{ chainId, addresses, page?, offset? }`，每地址调用 [addresstokenbalance](https://docs.etherscan.io/api-reference/endpoint/addresstokenbalance)（**PRO**、供应商侧约 **2 次/秒**）；服务端**串行**并可用 `ETHERSCAN_PRO_MIN_INTERVAL_MS` 节流。该能力**仅依赖 Etherscan**；网络不可达时返回 `etherscan_unreachable`，并在 60s 内短路重试。统一查询会缓存 token 持仓（新鲜 60s / stale 30min）并支持在不可达时回退旧缓存；`ETHERSCAN_API_URL` 可指向自建 / 受控代理。
   - `POST /api/v1/evm/balance-reader/query`：JSON `{ chainId, addresses, tokenAddresses? }`，经 **`SERVER_RPC_URL`** 对已部署的 **`BalanceBatchReader.getBalances`** 做 **`eth_call`**。
     - 返回 **`nativeBalances`**：各地址 **`address.balance`**（链原生币 wei）。
     - **`tokenAddresses`**：ERC-20 列表（默认 `[]` 则仅返回原生）；代币格仅 **`ok` + `balanceRaw`**（失败时 `ok=false` 且 `balanceRaw` 为 `0`）。
@@ -428,14 +437,20 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `LOG_LEVEL` / `LOG_PRETTY`                    | Pino 级别；`LOG_PRETTY` 控制开发态控制台是否 pino-pretty                                                                                                                           |
 | `SERVER_RPC_URL`                              | 服务端 EVM JSON-RPC（`POST /api/v1/evm/rpc` 上游）；配置后也作为**原生余额**首选数据源（`eth_chainId` 必须与请求链一致，否则回退 Etherscan）                                       |
 | `ETHERSCAN_API_KEY`                           | [Etherscan API V2](https://docs.etherscan.io/introduction) 密钥（勿提交仓库；仅服务端使用）                                                                                        |
-| `ETHERSCAN_API_URL`                           | （可选）V2 API 根地址，默认 `https://api.etherscan.io/v2/api`                                                                                                                      |
+| `ETHERSCAN_API_URL`                           | （可选）V2 API 根地址，默认 `https://api.etherscan.io/v2/api`；网络不可达时可指向自建 / 受控代理                                                                                   |
 | `ETHERSCAN_PRO_MIN_INTERVAL_MS`               | （可选）多地址 `addresstokenbalance` 串行间隔（毫秒），默认 `550`                                                                                                                  |
+| `ETHERSCAN_TOKEN_CACHE_TTL_MS`                | （可选）ERC-20 持仓缓存新鲜期（毫秒），默认 `60000`                                                                                                                                |
+| `ETHERSCAN_TOKEN_STALE_TTL_MS`                | （可选）ERC-20 持仓过期保留期（毫秒），默认 `1800000`；Etherscan 不可达时回退 stale                                                                                                |
 | `EVM_BALANCE_READER_ADDRESSES_JSON`           | （可选）`BalanceBatchReader` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/balance-reader/query` 及 `SERVER_RPC_URL` 目标链一致 |
 | `EVM_BATCH_SENDER_ADDRESSES_JSON`             | （可选）`BatchSender` 部署地址，JSON：`{"1":"0x...","11155111":"0x..."}`（键为十进制 `chainId`）；与 `POST /api/v1/evm/batch-sender/build` 的 `chainId` 一致                       |
 | `SERVER_TRON_API_URL` / `SERVER_TRON_API_KEY` | [TronGrid](https://developers.tron.network/) 根地址（默认 `https://api.trongrid.io`）与 API Key（勿提交仓库；仅服务端使用）                                                        |
 | `SERVER_TRON_MIN_INTERVAL_MS`                 | （可选）Tron 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                            |
 | `SERVER_BTC_API_URL`                          | （可选）[Esplora](https://github.com/Blockstream/esplora/blob/master/API.md) API 根地址，默认 `https://blockstream.info/api`（只读；无需 Key）                                     |
 | `SERVER_BTC_MIN_INTERVAL_MS`                  | （可选）BTC 批量地址查询的串行间隔（毫秒），默认 `250`                                                                                                                             |
+| `SERVER_BALANCE_CACHE_TTL_MS`                 | （可选）统一余额查询结果新鲜期（毫秒），默认 `15000`                                                                                                                               |
+| `SERVER_BALANCE_STALE_TTL_MS`                 | （可选）统一余额查询结果过期保留期（毫秒），默认 `300000`；上游失败时回退 stale                                                                                                    |
+| `SERVER_BALANCE_RATE_LIMIT_PER_MINUTE`        | （可选）匿名查询限额（次/分钟/IP），默认 `30`                                                                                                                                      |
+| `SERVER_BALANCE_AUTH_RATE_LIMIT_PER_MINUTE`   | （可选）登录会话查询限额（次/分钟/会话），默认 `120`                                                                                                                               |
 | `CONTRACT_ADDRESSES_JSON` 或分键              | 各 `chainId` 下合约地址                                                                                                                                                            |
 | `SESSION_SECRET` / OAuth 等                   | **预留**：持久化 / Cookie 会话或第三方登录时使用；当前 Bearer token 为进程内随机 token，不读取该变量                                                                               |
 
@@ -468,7 +483,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 - `packages/shared`（Zod schema + TS 类型 + 错误码）
 - `docs/engineering/TECHNICAL-SOLUTION.md`（本文件）
 
-CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test；`extension` `plasmo build`。
+CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测试；`contracts` test；`extension` `plasmo build`。
 
 ---
 
@@ -489,7 +504,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### 阶段 3：服务端（约 2–4 周）
 
-- 基于 **Fastify** 实现 Auth、ChainGateway、业务 API 骨架；测试网配置（Auth + tx 广播 MVP 已落地；限流 / 持久化 / 统一批量 API 待补）
+- 基于 **Fastify** 实现 Auth、ChainGateway、业务 API 骨架；测试网配置（Auth + tx 广播 MVP、统一余额查询 / 进程内限流与缓存已落地；持久化 / 多实例共享待补）
 
 ### 阶段 4：合约（持续）
 
@@ -514,7 +529,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
 - **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
 - **Auth 会话生产化**：当前为内存 Bearer + Web `sessionStorage`；需决定 Redis / DB 持久化、HttpOnly Cookie / CSRF、多实例共享与限流策略
-- **批量地址查询**：单次最大条数、QPS、缓存、鉴权与是否商业化
+- **批量地址查询（已拍板，P1 默认策略）**：统一入口 `POST /api/v1/balances/query`；每链 1–20 个地址；匿名 30 次/分钟/IP、登录 120 次/分钟/会话；结果缓存 15s、过期保留 5min；匿名可用，登录提高限额。当前限流 / 缓存为**进程内存**，多实例部署需替换为 Redis 等共享实现（见 P4-4 / P4-5）。
 - **ERC-4337（账户抽象）— 待办调研**：评估 **UserOperation** / **Bundler** / **Paymaster** / 智能合约账户与 **EntryPoint** 在本项目中的适用场景。  
   重点：**资金分散与归集**（尤其原生币无法像 ERC-20 那样单合约 `transferFrom` 多源拉取的前提下，AA 能否改善批量体验、代付 gas、与插件/服务端托管边界如何划分）。  
   结论落地前不绑定实现；调研后更新 §0 与本条。
@@ -537,11 +552,11 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### Web / 服务端
 
-[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询**（EVM / Tron / BTC）、[`/account`](../../apps/web/src/app/account/page.tsx) **登录与交易广播**（challenge → `personal_sign` → Bearer 会话 → `eth_signTransaction` → 服务端广播）。
+[apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询入口**（链选择卡片），以及三张独立查询页 [`/balances/evm`](../../apps/web/src/app/balances/evm/page.tsx)、[`/balances/tron`](../../apps/web/src/app/balances/tron/page.tsx)、[`/balances/btc`](../../apps/web/src/app/balances/btc/page.tsx)（每页只提交当前链一个 group；地址去重 / 校验、取消、分页 / CSV 导出、空态 / 部分失败提示、原始 JSON 调试），[`/account`](../../apps/web/src/app/account/page.tsx) **登录与交易广播**（challenge → `personal_sign` → Bearer 会话 → `eth_signTransaction` → 服务端广播）。
 
-[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，Bearer 会话）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。
+[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，Bearer 会话）、**统一余额查询**（`POST /api/v1/balances/query`、`GET /api/v1/balances/status`，可选鉴权、进程内限流 / 缓存、按链 / 按地址部分失败）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、ERC-20 持仓与 stale 缓存、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。集成测试覆盖统一查询成功 / 部分失败 / 上游不可达、鉴权、限流与 ERC-20 stale 回退（`pnpm --filter @plugin/server test`）。
 
-**Auth 与 tx 广播已具备 MVP**；业务 API、统一批量 API、限流 / 缓存 / 生产化会话仍待迭代（见 [BACKLOG.md](./BACKLOG.md)）。
+**Auth 与 tx 广播已具备 MVP，统一余额查询已完成 P1 产品化**；业务 API、多实例共享限流 / 缓存与生产化会话仍待迭代（见 [BACKLOG.md](./BACKLOG.md) P4）。
 
 ### 合约
 
@@ -549,7 +564,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`contracts` test�
 
 ### 共享
 
-[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tronExplorer` / `btcExplorer` / `auth` / `tx`，含请求与响应 schema）与错误码（`errors/`）。
+[packages/shared](../../packages/shared/)：Bridge 信封、内置 EVM 链清单、HTTP 契约（`evmExplorer` / `evmBalanceReader` / `evmBatchSender` / `tronExplorer` / `btcExplorer` / `balances` / `auth` / `tx`，含请求与响应 schema）与错误码（`errors/`）。
 
 ### 根目录
 

@@ -103,17 +103,17 @@
 
 - **桥接形态**：EIP-1193 与 postMessage **双轨并存**（与 [§9](../engineering/TECHNICAL-SOLUTION.md) 对齐）。
 - **目标链与 RPC / Tron / BTC 数据源**；是否代广播 BTC（§9）。
-- **批量查询**：单次条数、QPS、缓存、是否登录可见（§9）。
+- **批量查询（P1 默认策略已定）**：每链 1–20 个地址；匿名 30 次/分钟/IP、登录 120 次/分钟/会话；缓存 15s + stale 5min（§9）。
 - **链上业务主线**：至少一条清晰用户故事（否则 A4–A6 难定优先级）。
 
 ---
 
-## D. 已实现基线 · 总览（截至 2026-10-20）
+## D. 已实现基线 · 总览（截至 2026-10-22）
 
-| 子项目 | 摘要                                                                                                                                                                                                                                                                                                         | 细则与缺口                             |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| 扩展   | background、双内容脚本 EIP-1193/6963、bridge、vault（EVM+TVM）、侧栏（概览与「DApp 全局设置」）；连接、`personal_sign`/`eth_sign`、EIP-712、交易四类审批 Tab + EVM/TVM 账户管理 + 多链地址生成器；内置链切换、只读 RPC、`eth_sendRawTransaction`、交易与 `evmTxSubmitMode`（见 engineering/extension.md 表） | [prd-extension.md](./prd-extension.md) |
-| Web    | Next；`/wallet` 联调扩展（EIP-6963 + EIP-1193）、`/account` 登录与交易广播（challenge → `personal_sign` → Bearer 会话 → `eth_signTransaction` → 服务端广播）、`/balances` **多链余额查询**（EVM / Tron / BTC）                                                                                               | [prd-web.md](./prd-web.md)             |
-| 服务端 | Auth（challenge / verify / me / logout，Bearer 会话）、EVM JSON-RPC 转发 + tx 广播、Etherscan V2、`balance-reader` 链上批量、`batch-sender` 构造、Tron 账户余额（TronGrid）、BTC 地址余额（Esplora）、status / meta                                                                                          | [prd-server.md](./prd-server.md)       |
-| shared | Bridge、内置链清单、explorer / balance-reader / batch-sender / tx / auth 契约（含请求 / 响应 schema）                                                                                                                                                                                                        | [prd-shared.md](./prd-shared.md)       |
-| 合约   | Foundry；Token / TokenPermit；BalanceBatchReader / BatchSender / BatchCollector（含测试）                                                                                                                                                                                                                    | [prd-contracts.md](./prd-contracts.md) |
+| 子项目 | 摘要                                                                                                                                                                                                                                                                                                                                                    | 细则与缺口                             |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 扩展   | background、双内容脚本 EIP-1193/6963、bridge、vault（EVM+TVM）、侧栏（概览与「DApp 全局设置」）；连接、`personal_sign`/`eth_sign`、EIP-712、交易四类审批 Tab + EVM/TVM 账户管理 + 多链地址生成器；内置链切换、只读 RPC、`eth_sendRawTransaction`、交易与 `evmTxSubmitMode`（见 engineering/extension.md 表）                                            | [prd-extension.md](./prd-extension.md) |
+| Web    | Next；`/wallet` 联调扩展（EIP-6963 + EIP-1193）、`/account` 登录与交易广播（challenge → `personal_sign` → Bearer 会话 → `eth_signTransaction` → 服务端广播）、`/balances` **多链余额查询入口** + `/balances/evm`、`/balances/tron`、`/balances/btc` **三链独立查询页**（每页只提交当前链；去重 / 校验、取消、分页、CSV、空态 / 错误态、原始 JSON 调试） | [prd-web.md](./prd-web.md)             |
+| 服务端 | Auth（challenge / verify / me / logout，Bearer 会话）、**统一余额查询**（`/api/v1/balances/query`、`/status`：限流、缓存、按链部分失败）、EVM JSON-RPC 转发 + tx 广播、Etherscan V2 / ERC-20 stale 缓存、`balance-reader` 链上批量、`batch-sender` 构造、Tron 账户余额（TronGrid）、BTC 地址余额（Esplora）                                             | [prd-server.md](./prd-server.md)       |
+| shared | Bridge、内置链清单、explorer / balance-reader / batch-sender / balances / tx / auth 契约（含请求 / 响应 schema）                                                                                                                                                                                                                                        | [prd-shared.md](./prd-shared.md)       |
+| 合约   | Foundry；Token / TokenPermit；BalanceBatchReader / BatchSender / BatchCollector（含测试）                                                                                                                                                                                                                                                               | [prd-contracts.md](./prd-contracts.md) |
