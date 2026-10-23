@@ -34,5 +34,9 @@ export const RUNTIME_MSG_REJECT_TYPED_DATA_SIGN = 'web3-wallet-reject-typed-data
 export const RUNTIME_MSG_APPROVE_SEND_TRANSACTION = 'web3-wallet-approve-send-transaction' as const;
 export const RUNTIME_MSG_REJECT_SEND_TRANSACTION = 'web3-wallet-reject-send-transaction' as const;
 
+/** 审批弹窗 / 侧栏 ↔ background：读取账户解锁状态、手动锁定全部（P2-2） */
+export const RUNTIME_MSG_GET_UNLOCK_STATUS = 'web3-wallet-get-unlock-status' as const;
+export const RUNTIME_MSG_LOCK_UNLOCKED_ACCOUNTS = 'web3-wallet-lock-unlocked-accounts' as const;
+
 /** 隔离脚本 → inpage：`kind` 与 `ContentBridgePending` 一致，inpage 据此延长 RPC 超时 */
 export const BRIDGE_POSTMESSAGE_KIND_PENDING = 'bridge-pending' as const;

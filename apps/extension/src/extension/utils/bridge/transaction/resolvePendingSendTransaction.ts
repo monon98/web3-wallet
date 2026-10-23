@@ -1,10 +1,11 @@
 ﻿import { EIP1193_ERROR_CODES } from '@plugin/shared';
 
+import type { SignApprovalResult } from '~/types';
 import { RUNTIME_MSG_DEFERRED_BRIDGE_RESULT } from '~lib/bridge/constants';
 import { eip1193TxToSendParams } from '~lib/bridge/transaction/eip1193SendTransactionParams';
 import { clearPendingSendTransaction, getPendingSendTransaction } from '~lib/bridge/transaction/pendingSendTransaction';
 import { extLogInfo, extLogWarn } from '~lib/extensionLog';
-import { unlockLocalAccountForAddress } from '~lib/vault/signing';
+import { getOrUnlockLocalAccount, markUnlockedAccountUsed } from '~lib/vault/unlockSession';
 import { getWalletBuiltinChain } from '~lib/walletUi/readonlyEvmRpc';
 import { loadWalletUiState } from '~lib/walletUi/walletUiState';
 import { createPublicClient, getAddress, http, type TransactionSerializable } from '~web3/evm/viem';
@@ -25,9 +26,7 @@ async function closeApprovalWindowIfAny(windowId: number | undefined): Promise<v
   }
 }
 
-export async function approvePendingSendTransactionAndNotify(
-  password: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function approvePendingSendTransactionAndNotify(password: string): Promise<SignApprovalResult> {
   const pending = await getPendingSendTransaction();
   if (!pending) {
     extLogWarn('resolve_send_transaction', { result: 'no_pending' });
@@ -35,13 +34,18 @@ export async function approvePendingSendTransactionAndNotify(
   }
 
   const addr = getAddress(pending.signerAddress);
-  const acc = await unlockLocalAccountForAddress(addr, password);
-  if (!acc) {
+  const unlock = await getOrUnlockLocalAccount(addr, password);
+  if (unlock.ok === false) {
+    const unlockRequired = unlock.reason === 'unlock_required';
     extLogWarn('resolve_send_transaction', {
       requestId: pending.bridgeRequestId,
-      result: 'unlock_failed'
+      result: unlockRequired ? 'unlock_required' : 'unlock_failed'
     });
-    return { ok: false, error: '口令错误或本地无该地址的加密账户。' };
+    return {
+      ok: false,
+      error: unlockRequired ? '账户已锁定，请输入口令后重试。' : '口令错误或本地无该地址的加密账户。',
+      ...(unlockRequired ? { code: 'unlock_required' as const } : {})
+    };
   }
 
   const state = await loadWalletUiState();
@@ -64,7 +68,7 @@ export async function approvePendingSendTransactionAndNotify(
 
   let resultHex: `0x${string}`;
   try {
-    const serialized = await acc.signTransaction({
+    const serialized = await unlock.account.signTransaction({
       chainId: chain.id,
       ...parsed.params
     } as TransactionSerializable);
@@ -74,6 +78,7 @@ export async function approvePendingSendTransactionAndNotify(
     } else {
       resultHex = await publicClient.sendRawTransaction({ serializedTransaction: serialized });
     }
+    await markUnlockedAccountUsed(addr);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     extLogWarn('resolve_send_transaction', {

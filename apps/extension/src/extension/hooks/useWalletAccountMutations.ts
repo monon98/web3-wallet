@@ -7,6 +7,7 @@ import {
   renameWalletAccount
 } from '~lib/vault/record';
 import { resetWalletUiStateToDefaults } from '~lib/walletUi/globalSettings';
+import { lockUnlockedAccounts } from '~lib/walletUi/unlockRuntime';
 
 import { createAccountMutations } from './common/createAccountMutations';
 import type { PanelStatus } from './usePanelStatus';
@@ -26,6 +27,8 @@ export function useWalletAccountMutations(showStatus: ShowStatus, refreshVaultUi
     moveDown: moveWalletAccountDown,
     clearAll: clearAllWalletAccounts,
     afterRemove: async () => {
+      // 删除账户后立即丢弃 background 内存解锁态，避免旧地址在 TTL 内继续显示已解锁。
+      await lockUnlockedAccounts();
       const next = await listWalletAccountSummaries();
       if (next.length === 0) {
         await resetWalletUiStateToDefaults();
@@ -37,6 +40,7 @@ export function useWalletAccountMutations(showStatus: ShowStatus, refreshVaultUi
     afterMoveUp: async () => ({ okText: '已调整顺序', logAction: 'move_account_up' }),
     afterMoveDown: async () => ({ okText: '已调整顺序', logAction: 'move_account_down' }),
     afterClearAll: async () => {
+      await lockUnlockedAccounts();
       await resetWalletUiStateToDefaults();
       return { okText: '已清空账户', logAction: 'clear_all_accounts' };
     }

@@ -4,7 +4,7 @@
 
  * 物理路径：`src/extension/types/`（聚合方式：`export type * from './…'`；勿用 `@types` 作 tsconfig paths，会与 `@types/*` 包冲突）。
 
- * 域划分：**`bridge/`**（DApp 桥挂起态与 handler，`~/types/bridge`）、`contentsPostMessage`、`vault`、`walletUi`、`walletPanel*`、`account`；末尾再导出 `@plugin/ui` 组件 props。
+ * 域划分：**`bridge/`**（DApp 桥挂起态与 handler，`~/types/bridge`）、`contentsPostMessage`、`unlock`、`vault`、`walletUi`、`walletPanel*`、`account`；末尾再导出 `@plugin/ui` 组件 props。
 
  */
 
@@ -18,6 +18,8 @@ export type * from './bridgeFromShared';
 export type * from './bridge';
 
 export type * from './contentsPostMessage';
+
+export type * from './unlock';
 
 export type * from './walletUi';
 

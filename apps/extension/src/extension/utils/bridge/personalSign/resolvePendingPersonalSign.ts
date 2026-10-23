@@ -1,10 +1,11 @@
 ﻿import { EIP1193_ERROR_CODES } from '@plugin/shared';
 import type { Hex } from 'viem';
 
+import type { SignApprovalResult } from '~/types';
 import { RUNTIME_MSG_DEFERRED_BRIDGE_RESULT } from '~lib/bridge/constants';
 import { clearPendingPersonalSign, getPendingPersonalSign } from '~lib/bridge/personalSign/pendingPersonalSign';
 import { extLogInfo, extLogWarn } from '~lib/extensionLog';
-import { unlockLocalAccountForAddress } from '~lib/vault/signing';
+import { getOrUnlockLocalAccount, markUnlockedAccountUsed } from '~lib/vault/unlockSession';
 import { getAddress } from '~web3/evm/viem';
 
 /**
@@ -26,29 +27,34 @@ async function closeApprovalWindowIfAny(windowId: number | undefined): Promise<v
 }
 
 /**
- * @param password 用户在弹窗中输入的 vault 口令（不落盘、不写日志）
- * @returns 成功 `{ ok: true }`；口令/账户/签名失败时 `{ ok: false, error }`
+ * @param password 用户在弹窗中输入的 vault 口令（不落盘、不写日志）；已解锁时为空串
+ * @returns 成功 `{ ok: true }`；口令/账户/签名失败时 `{ ok: false, error }`，
+ * 锁定且未提供口令时带 `code: 'unlock_required'` 让弹窗恢复输入框
  */
-export async function approvePendingPersonalSignAndNotify(
-  password: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function approvePendingPersonalSignAndNotify(password: string): Promise<SignApprovalResult> {
   const pending = await getPendingPersonalSign();
   if (!pending) {
     extLogWarn('resolve_personal_sign', { result: 'no_pending' });
     return { ok: false, error: '没有待处理的签名请求。' };
   }
   const addr = getAddress(pending.signerAddress);
-  const acc = await unlockLocalAccountForAddress(addr, password);
-  if (!acc) {
+  const unlock = await getOrUnlockLocalAccount(addr, password);
+  if (unlock.ok === false) {
+    const unlockRequired = unlock.reason === 'unlock_required';
     extLogWarn('resolve_personal_sign', {
       requestId: pending.bridgeRequestId,
-      result: 'unlock_failed'
+      result: unlockRequired ? 'unlock_required' : 'unlock_failed'
     });
-    return { ok: false, error: '口令错误或本地无该地址的加密账户。' };
+    return {
+      ok: false,
+      error: unlockRequired ? '账户已锁定，请输入口令后重试。' : '口令错误或本地无该地址的加密账户。',
+      ...(unlockRequired ? { code: 'unlock_required' as const } : {})
+    };
   }
   let signature: Hex;
   try {
-    signature = await acc.signMessage({ message: { raw: pending.messageHex as Hex } });
+    signature = await unlock.account.signMessage({ message: { raw: pending.messageHex as Hex } });
+    await markUnlockedAccountUsed(addr);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     extLogWarn('resolve_personal_sign', {

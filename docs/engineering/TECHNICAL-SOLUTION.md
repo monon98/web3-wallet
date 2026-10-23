@@ -51,6 +51,9 @@
 - **0.55** · 2026-10-22
   P4-5 会话安全生产化：浏览器 `POST /api/v1/auth/verify` 改为写入 **HttpOnly `wallet_session` Cookie**（默认 `SameSite=Lax`、生产 `Secure`），响应返回 `csrfToken` 且不再下发 sessionToken；`GET /api/v1/auth/me` 对 Cookie 会话返回 CSRF token；`POST /api/v1/tx/broadcast` 与 `POST /api/v1/auth/logout` 校验 `x-csrf-token`（HMAC(SESSION_SECRET, sessionToken)）。无 Origin 的 API 客户端保留 Bearer。会话新增 **`SERVER_SESSION_STORE=file`** 原子文件持久化（生产默认，`SERVER_SESSION_FILE` 默认 `logs/sessions.json`），`SESSION_SECRET` 生产必填；CORS 改为 `credentials=true` 并放行 `x-csrf-token`。Web `/account`、`/balances` 移除 `sessionStorage`，CSRF token 只存页面内存；新增 `@fastify/cookie`、`sessionCookie.ts` / `sessionAuth.ts` / `csrf.ts` / `sessionStore.ts` 与 `sessionStore.test.ts`，服务端测试 17 项通过。§5.2、§5.4、§6、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[web.md](./web.md)、[security.md](./security.md)、[.env.example](../../.env.example) 同步；多实例共享会话与 Web CSP 仍待 P4-4 / 后续。
 
+- **0.56** · 2026-10-23
+  P2-2 会话级解锁 / 自动锁定：解密后的 viem 账户仅缓存在 **background 内存**（[unlockSession.ts](../../apps/extension/src/extension/utils/vault/unlockSession.ts)），按签名地址隔离，不写 `chrome.storage`、不进入 content script / 网页；默认空闲 **15 分钟**，侧栏「DApp 全局设置 → 账户解锁」可配 **1–120 分钟**（[unlockSettings.ts](../../apps/extension/src/extension/utils/vault/unlockSettings.ts)），成功签名 / 广播后重新计时，并支持手动「立即锁定全部」。EVM 的 `personal_sign` / `eth_sign`、EIP-712、`eth_sendTransaction` / `eth_signTransaction` 在解锁态免重复口令，但每个审批弹窗仍须确认；账户已从 vault 删除、TTL 过期、手动锁定或 Service Worker 休眠后必须重新输入口令。新增 `RUNTIME_MSG_GET_UNLOCK_STATUS` / `RUNTIME_MSG_LOCK_UNLOCKED_ACCOUNTS`、[useSignerUnlockStatus.ts](../../apps/extension/src/extension/hooks/useSignerUnlockStatus.ts) 与侧栏 [unlockSessionSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/unlockSessionSection.tsx)。§4.1、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[extension.md](./extension.md)、[security.md](./security.md)、[prd-extension.md](../product/prd-extension.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步。
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -263,7 +266,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 #### 存储
 
-`chrome.storage.local` 存加密 vault；支持**多钱包档案**（分 vault 或等价隔离）；可选密码派生密钥（PBKDF2/Argon2 等选型在实现阶段 ADR）
+`chrome.storage.local` 存加密 vault；支持**多钱包档案**（分 vault 或等价隔离）；可选密码派生密钥（PBKDF2/Argon2 等选型在实现阶段 ADR）。**解锁态仅存 background 进程内存**（不落盘），空闲 TTL 到期、手动锁定、Service Worker 休眠或浏览器重启即清除。
 
 #### 密码学与链
 
@@ -283,7 +286,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **bridge**：[handleBridgeMessage.ts](../../apps/extension/src/extension/utils/bridge/handleBridgeMessage.ts)。
 
-**vault**：[utils/vault/](../../apps/extension/src/extension/utils/vault/)（加密账户包与 [signing.ts](../../apps/extension/src/extension/utils/vault/signing.ts)）。
+**vault**：[utils/vault/](../../apps/extension/src/extension/utils/vault/)（加密账户包与 [signing.ts](../../apps/extension/src/extension/utils/vault/signing.ts)；会话级解锁 [unlockSession.ts](../../apps/extension/src/extension/utils/vault/unlockSession.ts) / TTL 设置 [unlockSettings.ts](../../apps/extension/src/extension/utils/vault/unlockSettings.ts)）。
 
 **web3**：[extension/web3/](../../apps/extension/src/extension/web3/)（HD 与 EVM/TVM/BTC 批量地址派生）。
 
@@ -291,19 +294,19 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **钱包 UI / 只读 RPC**：[walletUiState.ts](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)、[readonlyEvmRpc.ts](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)。
 
-**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站列表与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / 交易提交方式 / 站点授权策略）。
+**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站列表与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / 交易提交方式 / 站点授权策略 / **账户解锁与自动锁定 TTL**）。
 
 **审批与账户 Tab**：[siteConnect](../../apps/extension/src/tabs/siteConnect.tsx)、[signPersonal](../../apps/extension/src/tabs/signPersonal.tsx)、[signTypedData](../../apps/extension/src/tabs/signTypedData.tsx)、[signSendTransaction](../../apps/extension/src/tabs/signSendTransaction.tsx)；账户管理 [evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)、[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)（TVM 仅生成 / 导入 / 列表，不签名）；[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)（EVM / TVM / BTC 批量派生与导出）。
 
 **EIP-1193（EVM）**：只读与账户类——`eth_chainId`、`net_version`、`eth_accounts`、`eth_requestAccounts`、`wallet_switchEthereumChain` / `wallet_addEthereumChain`（内置链）、`eth_getBalance`、`eth_blockNumber`、`eth_sendRawTransaction`。
 
-**消息 / 结构化签名**：**`personal_sign`**、**`eth_sign`**（内部等同 `personal_sign` 挂起路径）、**`eth_signTypedData` / `eth_signTypedData_v3` / `eth_signTypedData_v4`**（EIP-712）。
+**消息 / 结构化签名**：**`personal_sign`**、**`eth_sign`**（内部等同 `personal_sign` 挂起路径）、**`eth_signTypedData` / `eth_signTypedData_v3` / `eth_signTypedData_v4`**（EIP-712）。账户处于 TTL 解锁态时，审批弹窗隐藏口令输入并复用 background 内存中的可签名账户；锁定 / 过期时恢复口令输入。
 
-**交易**：**`eth_sendTransaction`**（口令弹窗；返回哈希或已签名 RLP 由持久化 **`evmTxSubmitMode`** 决定）、**`eth_signTransaction`**（口令弹窗；固定仅返回已签名 RLP）。
+**交易**：**`eth_sendTransaction`**（口令或已解锁确认；返回哈希或已签名 RLP 由持久化 **`evmTxSubmitMode`** 决定）、**`eth_signTransaction`**（口令或已解锁确认；固定仅返回已签名 RLP）。
 
 **挂起互斥**：连接、`personal_sign`/`eth_sign`、EIP-712、`eth_sendTransaction`/`eth_signTransaction` **四者不得同时挂起**（见 [bridge/constants](../../apps/extension/src/extension/utils/bridge/constants.ts)）。
 
-**仍未实现或受限**：**多钱包档案**、**自定义 RPC 链**、生产级**会话解锁**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**；**BTC** 仅地址派生工具（钱包 / 签名未实现）；站点侧尚无搜索 / 分组等增强。明细表见 [extension.md](./extension.md)「EIP-1193 当前能力」。
+**仍未实现或受限**：**多钱包档案**、**自定义 RPC 链**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**；**BTC** 仅地址派生工具（钱包 / 签名未实现）；站点侧尚无搜索 / 分组等增强。**会话解锁**已实现（P2-2），但只存在于 background 内存，MV3 Service Worker 被回收或浏览器重启后即失效，不是跨会话持久解锁。明细表见 [extension.md](./extension.md)「EIP-1193 当前能力」。
 
 #### 开发态可观测性（扩展日志索引）
 
@@ -473,20 +476,20 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 ## 6. 安全模型摘要
 
-| 威胁                 | 缓解                                                                                          |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| 恶意网页冒充 bridge  | origin 白名单、扩展 ID 校验、challenge-nonce                                                  |
-| 恶意站点跨域读取 API | 服务端 `SERVER_CORS_ORIGINS` 白名单；auth 路由对非白名单 `Origin` 返回 403                    |
-| 日志泄露敏感数据     | Pino redaction；access log 只记录路由模板；不记录 raw tx / token / 地址查询串                 |
-| 会话 token 泄露      | 32 字节随机 token，服务端仅存 SHA-256 摘要；浏览器写 HttpOnly Cookie；auth 响应 `no-store`    |
+| 威胁                 | 缓解                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| 恶意网页冒充 bridge  | origin 白名单、扩展 ID 校验、challenge-nonce                                                     |
+| 恶意站点跨域读取 API | 服务端 `SERVER_CORS_ORIGINS` 白名单；auth 路由对非白名单 `Origin` 返回 403                       |
+| 日志泄露敏感数据     | Pino redaction；access log 只记录路由模板；不记录 raw tx / token / 地址查询串                    |
+| 会话 token 泄露      | 32 字节随机 token，服务端仅存 SHA-256 摘要；浏览器写 HttpOnly Cookie；auth 响应 `no-store`       |
 | CSRF                 | Cookie 会话写操作要求 `x-csrf-token`（HMAC 绑定 sessionToken）；`SameSite` 默认 Lax；CORS 白名单 |
-| 暴力 / 资源滥用      | 余额按 IP / 会话限流；auth challenge / verify 按 IP 限流；固定窗口 + 桶上限                   |
-| 代理伪造客户端 IP    | `SERVER_TRUST_PROXY` 默认关闭；仅可信反向代理后开启                                           |
-| XSS 窃取会话         | Cookie 为 HttpOnly，XSS 不能直接读 token；仍需补 Web CSP 并减少内联脚本                       |
-| 扩展权限过大         | `host_permissions` 最小化；按需申请                                                           |
-| 钓鱼签名             | 签名 UI 展示解码后的合约、函数、金额、收款地址；高危操作二次确认                              |
-| 服务端误用私钥       | 架构上服务端不持有用户私钥；代码审查与密钥管理仅针对服务账户                                  |
-| 依赖供应链漏洞       | Next / Fastify / `@fastify/*` 升级；`pnpm.overrides` 锁定修复版本；`pnpm audit --prod` 0 漏洞 |
+| 暴力 / 资源滥用      | 余额按 IP / 会话限流；auth challenge / verify 按 IP 限流；固定窗口 + 桶上限                      |
+| 代理伪造客户端 IP    | `SERVER_TRUST_PROXY` 默认关闭；仅可信反向代理后开启                                              |
+| XSS 窃取会话         | Cookie 为 HttpOnly，XSS 不能直接读 token；仍需补 Web CSP 并减少内联脚本                          |
+| 扩展权限过大         | `host_permissions` 最小化；按需申请                                                              |
+| 钓鱼签名             | 签名 UI 展示解码后的合约、函数、金额、收款地址；高危操作二次确认                                 |
+| 服务端误用私钥       | 架构上服务端不持有用户私钥；代码审查与密钥管理仅针对服务账户                                     |
+| 依赖供应链漏洞       | Next / Fastify / `@fastify/*` 升级；`pnpm.overrides` 锁定修复版本；`pnpm audit --prod` 0 漏洞    |
 
 > **当前登录会话（P4-5）**：Web 使用 HttpOnly Cookie，页面只在内存保存 `/auth/me` 返回的 CSRF token；同站跨端口联调默认 `SameSite=Lax`，跨站部署需 `SameSite=None` + `Secure` + HTTPS。服务端会话默认文件持久化，单实例重启不丢；多实例共享与 Web CSP 仍待后续项（见 [BACKLOG.md](./BACKLOG.md) P4-4 与 [security.md](./security.md)）。
 
@@ -549,6 +552,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
 - **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
 - **Auth 会话**：P4-5 已完成 HttpOnly Cookie + CSRF + 单实例文件持久化；仍待决定 **Redis / DB 多实例共享**、Web CSP 与 cross-site Cookie 的最终部署拓扑（见 P4-4）。
+- **扩展解锁态（P2-2，已定）**：解密后的可签名账户只放 **background 内存**；按地址隔离；空闲 TTL 默认 15 分钟，可配 1–120 分钟；成功签名 / 广播后重新计时；支持手动锁定全部；不持久化到 `chrome.storage` / `chrome.storage.session`。MV3 Service Worker 被回收、浏览器重启或扩展重载后需重新输入口令；后续若要求跨 Service Worker 存活，需单独评估非导出密钥封装方案，不能直接落盘明文/口令。
 - **批量地址查询（已拍板，P1 默认策略）**：统一入口 `POST /api/v1/balances/query`；每链 1–20 个地址；匿名 30 次/分钟/IP、登录 120 次/分钟/会话；结果缓存 15s、过期保留 5min；匿名可用，登录提高限额。当前限流 / 缓存为**进程内存**，多实例部署需替换为 Redis 等共享实现（见 P4-4 / P4-5）。
 - **ERC-4337（账户抽象）— 待办调研**：评估 **UserOperation** / **Bundler** / **Paymaster** / 智能合约账户与 **EntryPoint** 在本项目中的适用场景。  
   重点：**资金分散与归集**（尤其原生币无法像 ERC-20 那样单合约 `transferFrom` 多源拉取的前提下，AA 能否改善批量体验、代付 gas、与插件/服务端托管边界如何划分）。  
@@ -564,11 +568,11 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 **EVM DApp**：[`personal_sign`](../../apps/extension/src/tabs/signPersonal.tsx) / **`eth_sign`**（同路径）、[**EIP-712** `eth_signTypedData*`](../../apps/extension/src/tabs/signTypedData.tsx)、[**`eth_sendTransaction` / `eth_signTransaction`**](../../apps/extension/src/tabs/signSendTransaction.tsx)、**`eth_sendRawTransaction`**（无口令）、连接 [`siteConnect`](../../apps/extension/src/tabs/siteConnect.tsx)；全局 **`evmTxSubmitMode`**（[`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)）。
 
-侧栏 **已连接网站** 列表与断开、**DApp 全局设置**（默认账户、交易提交方式、站点授权策略）；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）。
+侧栏 **已连接网站** 列表与断开、**DApp 全局设置**（默认账户、交易提交方式、站点授权策略、**账户解锁 / 自动锁定**）；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）。
 
 细节见 [extension.md](./extension.md)；**开发态 `extLog*` 索引**见 **§4.1「开发态可观测性」**。
 
-**未完成**：多钱包档案、会话级解锁、站点管理增强（搜索等）、**自定义链**、通用 DApp 全量验收；**Tron DApp** 选型 **`tronweb`**（见 §0.25 / §4.1），**尚未编码**；BTC 仅地址派生工具。
+**未完成**：多钱包档案、站点管理增强（搜索等）、**自定义链**、通用 DApp 全量验收；**Tron DApp** 选型 **`tronweb`**（见 §0.25 / §4.1），**尚未编码**；BTC 仅地址派生工具。**会话级解锁已完成 P2-2**（background 内存、TTL + 手动锁定；Service Worker 休眠后失效）。
 
 ### Web / 服务端
 

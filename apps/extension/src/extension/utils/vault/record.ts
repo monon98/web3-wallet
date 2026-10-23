@@ -6,7 +6,7 @@ import { encryptUtf8WithPassword } from './crypto';
 
 /**
  * **加密账户包**（`chrome.storage.local`）：多条 `WalletAccountStored`（助记词或私钥经 AES 加密后的 payload）。
- * 仅暴露摘要列表给 UI；解密仅在 `signing.unlockLocalAccountForAddress` 等用户口令路径。
+ * 仅暴露摘要列表给 UI；解密仅在 `signing.unlockLocalAccountForAddress` / `unlockSession` 等用户口令路径。
  *
  * 加载时若某条 `address` 无法 `getAddress` 规范化则**丢弃该条**并打 `vault_bundle_coerce`（不记录地址或密文）。
  */

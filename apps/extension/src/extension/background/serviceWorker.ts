@@ -5,6 +5,8 @@ import {
   RUNTIME_MSG_APPROVE_SEND_TRANSACTION,
   RUNTIME_MSG_APPROVE_SITE_CONNECT,
   RUNTIME_MSG_APPROVE_TYPED_DATA_SIGN,
+  RUNTIME_MSG_GET_UNLOCK_STATUS,
+  RUNTIME_MSG_LOCK_UNLOCKED_ACCOUNTS,
   RUNTIME_MSG_REJECT_PERSONAL_SIGN,
   RUNTIME_MSG_REJECT_SEND_TRANSACTION,
   RUNTIME_MSG_REJECT_SITE_CONNECT,
@@ -29,6 +31,7 @@ import {
   rejectPendingTypedDataSignAndNotify
 } from '~lib/bridge/typedData/resolvePendingTypedDataSign';
 import { extLogDebug, extLogInfo, extLogWarn } from '~lib/extensionLog';
+import { getUnlockStatus, getUnlockSummary, lockAllUnlockedAccounts } from '~lib/vault/unlockSession';
 import { ensureWalletGlobalSettingsInitialized } from '~lib/walletUi/globalSettings';
 import { revokeSiteAuthSessionsForTab } from '~lib/walletUi/walletUiState';
 
@@ -40,7 +43,8 @@ import { revokeSiteAuthSessionsForTab } from '~lib/walletUi/walletUiState';
  *
  * **生命周期**：标签页关闭或**整页刷新**（非 iframe）时按 tab 撤销站点会话，避免残留授权。
  *
- * **安全**：不在此文件内持有或记录私钥/助记词明文；解密仅在用户确认的弹窗流程中完成（见 `resolvePendingSiteConnect` / `resolvePendingPersonalSign` / `resolvePendingTypedDataSign`）。
+ * **安全**：不记录私钥/助记词/口令；解密后的 viem 账户仅在 background 内存缓存至解锁 TTL（P2-2），
+ * 不落盘；签名仍须用户在每个审批弹窗确认（见 `vault/unlockSession` 与 `resolvePending*`）。
  *
  * 架构边界见 `docs/engineering/TECHNICAL-SOLUTION.md` 信任边界与扩展章节。
  */
@@ -172,6 +176,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       extLogInfo('runtime_reject_send_transaction', { type: t });
       void rejectPendingSendTransactionAndNotify().then(sendResponse);
       return true;
+    }
+    // --- 账户解锁态（P2-2）：审批弹窗按地址读取，侧栏读取全部摘要 ---
+    if (t === RUNTIME_MSG_GET_UNLOCK_STATUS) {
+      const raw = message as { address?: unknown };
+      const address = typeof raw.address === 'string' && raw.address ? raw.address : null;
+      const task = address ? getUnlockStatus(address) : getUnlockSummary();
+      void task.then(sendResponse).catch(() => sendResponse(null));
+      return true;
+    }
+    if (t === RUNTIME_MSG_LOCK_UNLOCKED_ACCOUNTS) {
+      const removedCount = lockAllUnlockedAccounts();
+      extLogInfo('unlock_session', { action: 'lock_all', removedCount });
+      sendResponse({ ok: true });
+      return false;
     }
   }
 
