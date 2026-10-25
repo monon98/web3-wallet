@@ -51,7 +51,7 @@ export function EvmTxSubmitModeSection({
     return (
       <div className='space-y-2'>
         <p className='text-[11px] leading-snug text-[var(--ui-muted-fg)]'>
-          全局生效：`eth_sendTransaction` 批准后，仅返回已签名十六进制或由内置 RPC
+          全局生效：`eth_sendTransaction` 批准后，仅返回已签名十六进制或由当前链 RPC
           广播并返回哈希。网页需与所选模式匹配（纯签名时请自行 `eth_sendRawTransaction`）。
         </p>
         {fields}
@@ -62,7 +62,7 @@ export function EvmTxSubmitModeSection({
   return (
     <PanelSection
       title='DApp 交易提交方式'
-      description='全局生效：`eth_sendTransaction` 批准后，仅返回已签名十六进制或由内置 RPC 广播并返回哈希。网页需与所选模式匹配（纯签名时请自行 eth_sendRawTransaction）。'
+      description='全局生效：`eth_sendTransaction` 批准后，仅返回已签名十六进制或由当前链 RPC 广播并返回哈希。网页需与所选模式匹配（纯签名时请自行 eth_sendRawTransaction）。'
       tone='muted'>
       {fields}
     </PanelSection>

@@ -141,7 +141,7 @@ export async function setWalletChainIdHex(chainIdHex: `0x${string}`): Promise<Wa
   return next;
 }
 
-/** 全局：`eth_sendTransaction` 仅返回已签名 RLP，或签名后由内置 RPC 广播。 */
+/** 全局：`eth_sendTransaction` 仅返回已签名 RLP，或签名后由当前链 RPC 广播。 */
 export async function setWalletEvmTxSubmitMode(mode: EvmTxSubmitMode): Promise<WalletUiStateV1> {
   const s = await loadWalletUiState();
   const next = { ...s, evmTxSubmitMode: mode };
@@ -276,7 +276,7 @@ export async function getSiteSessionAccountsForOrigin(origin: string, tabId: num
   return [sess.address];
 }
 
-/** 清空站点授权并保留当前链 ID（删除全部本地账户后调用�?*/
+/** 清空站点授权并保留当前链 ID（删除全部本地账户后调用）。 */
 export async function resetWalletUiStateToDefaults(): Promise<void> {
   const s = await loadWalletUiState();
   await saveWalletUiState({

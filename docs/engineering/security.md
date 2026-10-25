@@ -1,6 +1,6 @@
-# 安全自检（P4-2 / P4-5 / P2-2）
+# 安全自检（P4-2 / P4-5 / P2-2 / P2-3）
 
-> **状态**：2026-10-22 完成首轮自检与 P4-5 会话改造；2026-10-23 补充 P2-2 扩展解锁态。覆盖当前已实现的扩展 / Web / 服务端边界。
+> **状态**：2026-10-22 完成首轮自检与 P4-5 会话改造；2026-10-23 补充 P2-2 扩展解锁态与 P2-3 自定义 RPC 链。覆盖当前已实现的扩展 / Web / 服务端边界。
 >
 > **适用范围**：`apps/extension`、`apps/web`、`apps/server` 与根依赖锁定。接口语义以 [TECHNICAL-SOLUTION.md](./TECHNICAL-SOLUTION.md) §5 为准。
 
@@ -12,6 +12,7 @@
 | Web        | 不持有私钥、助记词；会话 token 在 **HttpOnly Cookie**，页面只保留 CSRF token   | 只提交公开地址与已签名 raw tx；不接触扩展本地密钥                                                               |
 | 服务端     | 不持有用户私钥 / 助记词；只保存 challenge、公开地址、会话与链上公开数据        | 不接收签名原文以外的密钥材料，不把 raw tx / token 写入日志                                                      |
 | 第三方数据 | Etherscan / TronGrid / Esplora 只接收公开地址与查询参数，不接收会话或密钥材料  | API Key 仅经服务端环境变量或请求头使用                                                                          |
+| 自定义 RPC | 用户显式配置的 RPC URL 存于 `chrome.storage.local`；节点可见公开地址与广播交易 | 不接收助记词 / 私钥；DApp 不能自动添加；仅 HTTPS / localhost HTTP；日志不记录 URL                               |
 
 ## 2. 检查清单
 
@@ -19,6 +20,7 @@
 | ---------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 密钥边界         | 通过             | 扩展 vault 负责本地加密存储与解密签名；Web / 服务端路由不出现私钥 / 助记词字段；桥接响应不包含明文密钥材料                                                                                                                                      |
 | 扩展解锁态       | 通过             | P2-2：解密后的 viem 账户仅存 background 内存，按签名地址隔离；默认空闲 15 分钟、可配 1–120 分钟，支持手动全部锁定；不写 `chrome.storage`；每次签名仍须审批弹窗确认；Service Worker 休眠 / 浏览器重启即失效                                      |
+| 自定义 RPC 链    | 通过             | P2-3：用户显式添加，最多 20 条；Chain ID 不可与内置链重复；RPC URL 仅 HTTPS 或 localhost / 127.0.0.1 HTTP；新增 / 修改 RPC 时校验 `eth_chainId`；DApp 的 `wallet_addEthereumChain` 不自动落库，未知链返回 4902；RPC URL 不写日志             |
 | 日志脱敏         | 通过             | Pino `redact` 覆盖 authorization、cookie、`x-csrf-token`、token / csrfToken、privateKey、mnemonic、signature、raw / signed transaction 与 `*.url`；access log 只记录**路由模板**，不记录地址查询串                                              |
 | CORS             | 通过             | `SERVER_CORS_ORIGINS` 白名单；开发默认仅 `http://localhost:3000` / `127.0.0.1:3000`；生产未配置时不放行跨域；auth challenge / verify 对非白名单 `Origin` 直接 403；测试覆盖                                                                     |
 | CSRF             | 通过             | 浏览器会话改为 HttpOnly Cookie；写接口（tx / logout）要求 `x-csrf-token` = HMAC(SESSION_SECRET, sessionToken)，常量时间比较；`SameSite` 可配（默认 Lax），跨站需 None + Secure；CORS 显式白名单且 `credentials=true`                            |
@@ -51,6 +53,7 @@
 
 - **扩展解锁态生命周期受 MV3 限制**：P2-2 的解锁账户只存在 background 内存，Service Worker 被回收或浏览器重启后必须重新输入口令；当前不提供跨 Service Worker 的持久解锁，避免把明文账户或口令写入 `chrome.storage`。
 - **解锁期间同扩展页面可发起签名**：解锁态只替代“重复输入口令”，不会跳过审批弹窗；但若扩展页面被 XSS 控制，攻击者可代用户点击确认。扩展页 CSP / 来源校验仍属于后续加固范围。
+- **自定义 RPC 是用户信任决策**：P2-3 的 `eth_chainId` 校验只能发现 RPC 配置不一致，不能证明节点诚实；错误或恶意节点可能返回错误数据、拒绝服务或记录公开地址 / 广播交易。RPC URL 可能含 API key，保存在本机 `chrome.storage.local`，列表仅展示 host，日志不记录 URL。
 - **会话持久化仍是单实例文件**：`SERVER_SESSION_STORE=file` 解决重启失效，但多实例不能共用本地文件；横向扩展前需接 Redis / DB（P4-4）。
 - **CORS 是浏览器读取边界**：非浏览器客户端不受 CORS 限制；敏感写接口仍依赖会话 + CSRF + 签名校验，不以 CORS 代替鉴权。
 - **全量依赖审计残余**：`pnpm audit` 的高危项集中在 Plasmo / Parcel / 构建工具链；`pnpm audit --prod` 已清零。构建机仍应视为受控环境，升级 Plasmo 时复跑全量审计。

@@ -1,6 +1,7 @@
 import {
   bytesToHex,
   createPublicClient,
+  defineChain,
   getAddress,
   hexToBytes,
   http,
@@ -16,6 +17,18 @@ import {
  * 业务代码（vault/bridge/ui）应仅从 `~web3/evm/viem` 引用，避免散落的三方库 import。
  */
 
-export { bytesToHex, createPublicClient, getAddress, hexToBytes, http, isAddress, isHex, numberToHex, size, toHex };
+export {
+  bytesToHex,
+  createPublicClient,
+  defineChain,
+  getAddress,
+  hexToBytes,
+  http,
+  isAddress,
+  isHex,
+  numberToHex,
+  size,
+  toHex
+};
 
 export type { Hex, TransactionSerializable } from 'viem';

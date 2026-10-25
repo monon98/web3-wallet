@@ -17,6 +17,8 @@ export type * from './bridgeFromShared';
 /** 桥接挂起态与 handler，见目录 `./bridge/` */
 export type * from './bridge';
 
+export type * from './customEvmChain';
+
 export type * from './contentsPostMessage';
 
 export type * from './unlock';

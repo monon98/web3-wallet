@@ -3,7 +3,7 @@
  *
  * **使用位置**：Service Worker（`background`，含 `side_panel_open` 等）、桥接模块、**隔离内容脚本**（`allUrls.ts`）、**MAIN 世界**（`inpageEvm.ts`，与页面共用控制台上下文时选扩展帧查看）。
  *
- * **禁止**传入或拼接：助记词、私钥、口令、`personal_sign` 原文、typed data 全量；可记录 `method`、`requestId`、**origin**、错误 code/message、**tabId**、**chainIdHex**、连接审批失败原因（如 `connect_approval_address` 的 `result` 枚举）、只读 RPC 失败摘要（`readonly_rpc_error`）、站点会话动作（`site_session` 的 `action` / `policy`）、`vault_bundle_coerce` 的计数、桥接拒绝 `reason` 枚举（`site_connect_blocked` / `personal_sign_blocked` / `typed_data_sign_blocked` / `bridge_handler_reject`）、`wallet_ui_pruned` 的 `reason` / `removedCount`、侧栏 `panel_action` 的 `action`（及断开站点时的 **origin**）、`side_panel_open_failed`、`approval_popup_create_failed` 的 `reason` / Chrome 错误摘要（**无**密钥材料）。
+ * **禁止**传入或拼接：助记词、私钥、口令、`personal_sign` 原文、typed data 全量、自定义 RPC URL（可能含节点 key）；可记录 `method`、`requestId`、**origin**、错误 code/message、**tabId**、**chainIdHex**、连接审批失败原因（如 `connect_approval_address` 的 `result` 枚举）、只读 RPC 失败摘要（`readonly_rpc_error`）、自定义链非法条目计数（`custom_chain_coerce`）、站点会话动作（`site_session` 的 `action` / `policy`）、`vault_bundle_coerce` 的计数、桥接拒绝 `reason` 枚举（`site_connect_blocked` / `personal_sign_blocked` / `typed_data_sign_blocked` / `bridge_handler_reject`）、`wallet_ui_pruned` 的 `reason` / `removedCount`、侧栏 `panel_action` 的 `action`（及断开站点时的 **origin**）、`side_panel_open_failed`、`approval_popup_create_failed` 的 `reason` / Chrome 错误摘要（**无**密钥材料）。
  */
 
 const TAG = '[web3-wallet]';

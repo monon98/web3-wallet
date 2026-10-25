@@ -54,6 +54,9 @@
 - **0.56** · 2026-10-23
   P2-2 会话级解锁 / 自动锁定：解密后的 viem 账户仅缓存在 **background 内存**（[unlockSession.ts](../../apps/extension/src/extension/utils/vault/unlockSession.ts)），按签名地址隔离，不写 `chrome.storage`、不进入 content script / 网页；默认空闲 **15 分钟**，侧栏「DApp 全局设置 → 账户解锁」可配 **1–120 分钟**（[unlockSettings.ts](../../apps/extension/src/extension/utils/vault/unlockSettings.ts)），成功签名 / 广播后重新计时，并支持手动「立即锁定全部」。EVM 的 `personal_sign` / `eth_sign`、EIP-712、`eth_sendTransaction` / `eth_signTransaction` 在解锁态免重复口令，但每个审批弹窗仍须确认；账户已从 vault 删除、TTL 过期、手动锁定或 Service Worker 休眠后必须重新输入口令。新增 `RUNTIME_MSG_GET_UNLOCK_STATUS` / `RUNTIME_MSG_LOCK_UNLOCKED_ACCOUNTS`、[useSignerUnlockStatus.ts](../../apps/extension/src/extension/hooks/useSignerUnlockStatus.ts) 与侧栏 [unlockSessionSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/unlockSessionSection.tsx)。§4.1、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[extension.md](./extension.md)、[security.md](./security.md)、[prd-extension.md](../product/prd-extension.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步。
 
+- **0.57** · 2026-10-23
+  P2-3 自定义 RPC 链：侧栏「DApp 全局设置 → 网络与自定义 RPC」支持切换内置链和新增 / 编辑 / 删除最多 **20** 个本地自定义 EVM 网络（[customEvmChainsSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/customEvmChainsSection.tsx)）。配置存于 `chrome.storage.local['web3_wallet_custom_evm_chains_v1']`（[customEvmChains.ts](../../apps/extension/src/extension/utils/walletUi/customEvmChains.ts)）；保存时校验 Chain ID 不与内置链 / 已有自定义链重复；新增网络或修改 RPC URL 时调用 `eth_chainId` 确认一致。RPC URL 仅允许 HTTPS 或 `localhost` / `127.0.0.1` HTTP，拒绝内嵌凭据与 fragment；URL 不写日志。只读 RPC / 广播与 `eth_sendTransaction` / `eth_signTransaction` 的链解析改为异步支持内置 + 自定义 RPC（[readonlyEvmRpc.ts](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)）；`wallet_switchEthereumChain` 可切到已配置自定义链，`wallet_addEthereumChain` 不自动添加未知链（DApp 的 `rpcUrls` 不作为信任来源，返回 4902）。§4.1、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[extension.md](./extension.md)、[security.md](./security.md)、[prd-extension.md](../product/prd-extension.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步。
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -292,13 +295,13 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **constants**：[extension/constants/](../../apps/extension/src/extension/constants/)（`~/constants`，批量上限等无依赖常量）。
 
-**钱包 UI / 只读 RPC**：[walletUiState.ts](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)、[readonlyEvmRpc.ts](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)。
+**钱包 UI / 只读 RPC**：[walletUiState.ts](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)、[readonlyEvmRpc.ts](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)、[customEvmChains.ts](../../apps/extension/src/extension/utils/walletUi/customEvmChains.ts)（自定义链存储 / URL 校验 / `eth_chainId` 探测）。
 
-**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站列表与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / 交易提交方式 / 站点授权策略 / **账户解锁与自动锁定 TTL**）。
+**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站列表与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / **网络与自定义 RPC** / 交易提交方式 / 站点授权策略 / **账户解锁与自动锁定 TTL**）。
 
 **审批与账户 Tab**：[siteConnect](../../apps/extension/src/tabs/siteConnect.tsx)、[signPersonal](../../apps/extension/src/tabs/signPersonal.tsx)、[signTypedData](../../apps/extension/src/tabs/signTypedData.tsx)、[signSendTransaction](../../apps/extension/src/tabs/signSendTransaction.tsx)；账户管理 [evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)、[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)（TVM 仅生成 / 导入 / 列表，不签名）；[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)（EVM / TVM / BTC 批量派生与导出）。
 
-**EIP-1193（EVM）**：只读与账户类——`eth_chainId`、`net_version`、`eth_accounts`、`eth_requestAccounts`、`wallet_switchEthereumChain` / `wallet_addEthereumChain`（内置链）、`eth_getBalance`、`eth_blockNumber`、`eth_sendRawTransaction`。
+**EIP-1193（EVM）**：只读与账户类——`eth_chainId`、`net_version`、`eth_accounts`、`eth_requestAccounts`、`wallet_switchEthereumChain` / `wallet_addEthereumChain`（内置链 + 侧栏已配置自定义链；`wallet_addEthereumChain` 不自动落库未知链）、`eth_getBalance`、`eth_blockNumber`、`eth_sendRawTransaction`（后三者使用当前链 RPC）。
 
 **消息 / 结构化签名**：**`personal_sign`**、**`eth_sign`**（内部等同 `personal_sign` 挂起路径）、**`eth_signTypedData` / `eth_signTypedData_v3` / `eth_signTypedData_v4`**（EIP-712）。账户处于 TTL 解锁态时，审批弹窗隐藏口令输入并复用 background 内存中的可签名账户；锁定 / 过期时恢复口令输入。
 
@@ -306,7 +309,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **挂起互斥**：连接、`personal_sign`/`eth_sign`、EIP-712、`eth_sendTransaction`/`eth_signTransaction` **四者不得同时挂起**（见 [bridge/constants](../../apps/extension/src/extension/utils/bridge/constants.ts)）。
 
-**仍未实现或受限**：**多钱包档案**、**自定义 RPC 链**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**；**BTC** 仅地址派生工具（钱包 / 签名未实现）；站点侧尚无搜索 / 分组等增强。**会话解锁**已实现（P2-2），但只存在于 background 内存，MV3 Service Worker 被回收或浏览器重启后即失效，不是跨会话持久解锁。明细表见 [extension.md](./extension.md)「EIP-1193 当前能力」。
+**仍未实现或受限**：**多钱包档案**；**Tron DApp**（`tronweb` + TronLink 风格注入）仅技术方案已定，**代码未接**；**BTC** 仅地址派生工具（钱包 / 签名未实现）；站点侧尚无搜索 / 分组等增强。**自定义 RPC 链**已实现（P2-3），但仅限用户显式添加，DApp 不能自动新增。**会话解锁**已实现（P2-2），但只存在于 background 内存，MV3 Service Worker 被回收或浏览器重启后即失效，不是跨会话持久解锁。明细表见 [extension.md](./extension.md)「EIP-1193 当前能力」。
 
 #### 开发态可观测性（扩展日志索引）
 
@@ -325,7 +328,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 `bridge_in` / `bridge_out` / `bridge_dispatch` / `bridge_throw`；`bridge_handler_reject`；`site_connect_blocked` / `site_connect_deferred`；`personal_sign_blocked` / `typed_data_sign_blocked`；`personal_sign_deferred` / `typed_data_sign_deferred`；`send_transaction_deferred`（含 `pendingTxRpcMethod`）；
 
-`runtime_*`（批准/拒绝挂起）；`sw_lifecycle`；`tab_sessions_revoked`；`side_panel_open` / `side_panel_open_failed`；`connect_approval_address`；`readonly_rpc_error`；`site_session`；`wallet_chain_set`；
+`runtime_*`（批准/拒绝挂起）；`sw_lifecycle`；`tab_sessions_revoked`；`side_panel_open` / `side_panel_open_failed`；`connect_approval_address`；`readonly_rpc_error`；`custom_chain_coerce`；`site_session`；`wallet_chain_set`；
 
 `vault_bundle_coerce`；`wallet_ui_pruned`；`resolve_*` / `reject_*`（含 `tab_send_failed`）；`approval_popup_*` / `approval_popup_create_failed`
 
@@ -549,6 +552,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 - **Web 与插件桥接**：默认 **EIP-1193 与 postMessage 双轨并存**；若裁剪范围须在 §0 留痕
 - **EVM 目标链**：`CHAIN_ID`、测试网/主网及 **RPC 供应商**（或自建节点）
+- **自定义 RPC 链（P2-3，已定）**：仅允许用户在扩展侧栏显式添加（最多 20 个），内置链不可覆盖；新增 / 修改 RPC 时校验 `eth_chainId`；RPC URL 仅 HTTPS 或 `localhost` / `127.0.0.1` HTTP，禁止内嵌凭据 / fragment；配置只存扩展本机 `chrome.storage.local`。`wallet_switchEthereumChain` 可切到已配置自定义链；`wallet_addEthereumChain` 不自动落库未知链（DApp 的 `rpcUrls` 不作为信任来源，返回 4902）。自定义 RPC 可观察公开地址与广播交易，属用户信任决策，不能替代节点诚实性保证。
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
 - **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
 - **Auth 会话**：P4-5 已完成 HttpOnly Cookie + CSRF + 单实例文件持久化；仍待决定 **Redis / DB 多实例共享**、Web CSP 与 cross-site Cookie 的最终部署拓扑（见 P4-4）。
@@ -564,15 +568,15 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### 插件
 
-[apps/extension](../../apps/extension/)：**background**；**隔离 + MAIN 双内容脚本**（EIP-1193 / 6963）；**bridge**、**vault**、**内置链切换**与 **只读余额 / 公共 RPC 广播**。
+[apps/extension](../../apps/extension/)：**background**；**隔离 + MAIN 双内容脚本**（EIP-1193 / 6963）；**bridge**、**vault**、**内置链 + 自定义 RPC 链切换**与 **只读余额 / 当前链 RPC 广播**。
 
-**EVM DApp**：[`personal_sign`](../../apps/extension/src/tabs/signPersonal.tsx) / **`eth_sign`**（同路径）、[**EIP-712** `eth_signTypedData*`](../../apps/extension/src/tabs/signTypedData.tsx)、[**`eth_sendTransaction` / `eth_signTransaction`**](../../apps/extension/src/tabs/signSendTransaction.tsx)、**`eth_sendRawTransaction`**（无口令）、连接 [`siteConnect`](../../apps/extension/src/tabs/siteConnect.tsx)；全局 **`evmTxSubmitMode`**（[`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)）。
+**EVM DApp**：[`personal_sign`](../../apps/extension/src/tabs/signPersonal.tsx) / **`eth_sign`**（同路径）、[**EIP-712** `eth_signTypedData*`](../../apps/extension/src/tabs/signTypedData.tsx)、[**`eth_sendTransaction` / `eth_signTransaction`**](../../apps/extension/src/tabs/signSendTransaction.tsx)、**`eth_sendRawTransaction`**（无口令，当前链 RPC 广播）、连接 [`siteConnect`](../../apps/extension/src/tabs/siteConnect.tsx)；全局 **`evmTxSubmitMode`**（[`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)）。
 
-侧栏 **已连接网站** 列表与断开、**DApp 全局设置**（默认账户、交易提交方式、站点授权策略、**账户解锁 / 自动锁定**）；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）。
+侧栏 **已连接网站** 列表与断开、**DApp 全局设置**（默认账户、**网络与自定义 RPC**、交易提交方式、站点授权策略、**账户解锁 / 自动锁定**）；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）。
 
 细节见 [extension.md](./extension.md)；**开发态 `extLog*` 索引**见 **§4.1「开发态可观测性」**。
 
-**未完成**：多钱包档案、站点管理增强（搜索等）、**自定义链**、通用 DApp 全量验收；**Tron DApp** 选型 **`tronweb`**（见 §0.25 / §4.1），**尚未编码**；BTC 仅地址派生工具。**会话级解锁已完成 P2-2**（background 内存、TTL + 手动锁定；Service Worker 休眠后失效）。
+**未完成**：多钱包档案、站点管理增强（搜索等）、通用 DApp 全量验收；**Tron DApp** 选型 **`tronweb`**（见 §0.25 / §4.1），**尚未编码**；BTC 仅地址派生工具。**自定义 RPC 链已完成 P2-3**（用户显式添加、`eth_chainId` 校验、DApp 不自动落库）。**会话级解锁已完成 P2-2**（background 内存、TTL + 手动锁定；Service Worker 休眠后失效）。
 
 ### Web / 服务端
 

@@ -1,5 +1,5 @@
 ﻿import type { BridgeRequest } from '@plugin/shared';
-import { EIP1193_ERROR_CODES, isWalletBuiltinEvmChainIdHex } from '@plugin/shared';
+import { EIP1193_ERROR_CODES } from '@plugin/shared';
 import type { Address } from 'viem';
 
 import type { BridgeHandlerResult, PendingSiteConnectKind } from '~/types/bridge';
@@ -15,7 +15,9 @@ import { extLogInfo, extLogWarn } from '~lib/extensionLog';
 import {
   broadcastSignedRawTransaction,
   fetchEthBlockNumberHex,
-  fetchEthGetBalanceHex
+  fetchEthGetBalanceHex,
+  isWalletEvmChainConfigured,
+  NO_CONFIGURED_RPC_ERROR_PREFIX
 } from '~lib/walletUi/readonlyEvmRpc';
 import {
   getSiteSessionAccountsForOrigin,
@@ -28,13 +30,19 @@ import {
 import { isAddress, isHex, type Hex } from '~web3/evm/viem';
 
 /**
- * **DApp 桥接请求处理**（background 核心）：�?content script 收到�?{@link BridgeRequest} 转为钱包状态读写�? * EIP-1193 JSON-RPC 行为，或挂起为「待用户批准」的连接/签名（打开对应 tab 弹窗）�? *
- * **数据�?*：网�?`window.ethereum`（inpage）→ 隔离脚本信封 �?本模�?�?`chrome.storage` / 只读 RPC / 弹窗�? *
- * **站点维度**：多数逻辑�?**origin + tabId** 区分会话；`senderOrigin` �?`sender.tab.url` 解析，扩展页无有效站�?origin 时拒绝�? *
- * 契约类型�?`@plugin/shared` `bridge/envelope`；错误码�?EIP-1193 对齐�?`EIP1193_ERROR_CODES`�? *
- * 开发日志：同步拒绝�?`bridge_throw`（JSON-RPC throw）外，还�?`site_connect_blocked`、`bridge_handler_reject`�? */
+ * **DApp 桥接请求处理**（background 核心）：将 content script 收到的 {@link BridgeRequest} 转为钱包状态读写、
+ * EIP-1193 JSON-RPC 行为，或挂起为「待用户批准」的连接/签名（打开对应 tab 弹窗）。
+ *
+ * **数据流**：网页 `window.ethereum`（inpage）→ 隔离脚本信封 → 本模块 → `chrome.storage` / 只读 RPC / 弹窗。
+ *
+ * **站点维度**：多数逻辑以 **origin + tabId** 区分会话；`senderOrigin` 从 `sender.tab.url` 解析，扩展页无有效站点 origin 时拒绝。
+ *
+ * 契约类型见 `@plugin/shared` `bridge/envelope`；错误码与 EIP-1193 对齐，见 `EIP1193_ERROR_CODES`。
+ *
+ * 开发日志：除同步拒绝的 `bridge_throw`（JSON-RPC throw）外，还有 `site_connect_blocked`、`bridge_handler_reject`。
+ */
 
-/** 从消息发送者解析页�?origin；扩展自�?URL 无有效站�?origin�?*/
+/** 从消息发送者解析页面 origin；扩展自身 URL 无有效站点 origin 时返回 null。 */
 function senderOrigin(sender: chrome.runtime.MessageSender): string | null {
   const url = sender.tab?.url ?? sender.url;
   if (!url || url.startsWith('chrome-extension://')) {
@@ -47,7 +55,7 @@ function senderOrigin(sender: chrome.runtime.MessageSender): string | null {
   }
 }
 
-/** `eip1193_request` �?params 为单�?`{ method, params }`，与标准 JSON-RPC 嵌套一致�?*/
+/** `eip1193_request` 的 params 为单个 `{ method, params }`，与标准 JSON-RPC 嵌套一致。 */
 function parseEip1193NestedParams(params: unknown): { method: string; params: unknown[] } {
   if (!params || typeof params !== 'object') {
     return { method: '', params: [] };
@@ -59,7 +67,7 @@ function parseEip1193NestedParams(params: unknown): { method: string; params: un
   return { method, params: paramsArr };
 }
 
-/** `net_version` 返回十进制字符串�?ID（历史兼容）�?*/
+/** `net_version` 返回十进制字符串链 ID（历史兼容）。 */
 function chainIdToNetVersion(chainIdHex: string): string {
   try {
     return BigInt(chainIdHex).toString(10);
@@ -68,12 +76,17 @@ function chainIdToNetVersion(chainIdHex: string): string {
   }
 }
 
-/** 与挂起连�?签名冲突时返回的 JSON-RPC 风格 code（非标准 EIP-1193 枚举，DApp 可据此提示用户先处理弹窗）�?*/
+/** 与挂起连接/签名冲突时返回的 JSON-RPC 风格 code（非标准 EIP-1193 枚举，DApp 可据此提示用户先处理弹窗）。 */
 const PENDING_CONNECT_RPC_CODE = -32002;
 
 /**
- * 处理 **已授权站�?* 下的标准 JSON-RPC（不�?`eth_requestAccounts` / `personal_sign` / typed data，它们在入口处分流）�? *
- * - 只读：`eth_getBalance` / `eth_blockNumber` 走内置公�?RPC（链须为 shared 内置列表）�? * - 切链：`wallet_*` 仅允许切换到内置链�? * - 广播：`eth_sendRawTransaction`（已签名 RLP）�? * - 未列入此函数的：`eth_sign` / `personal_sign` / typed data / 交易类在 `eip1193_request` 入口分流�? */
+ * 处理 **已授权站点** 下的标准 JSON-RPC（不含 `eth_requestAccounts` / `personal_sign` / typed data，它们在入口处分流）。
+ *
+ * - 只读：`eth_getBalance` / `eth_blockNumber` 走内置公共 RPC 或用户配置的自定义 RPC。
+ * - 切链：`wallet_*` 仅允许切换到内置链或侧栏已配置的自定义链。
+ * - 广播：`eth_sendRawTransaction`（已签名 RLP），使用当前链配置的 RPC。
+ * - 未列入此函数的：`eth_sign` / `personal_sign` / typed data / 交易类在 `eip1193_request` 入口分流。
+ */
 async function handleEip1193JsonRpc(
   method: string,
   _params: readonly unknown[],
@@ -104,7 +117,7 @@ async function handleEip1193JsonRpc(
         return await fetchEthGetBalanceHex(state.chainIdHex, addrParam as Address, blockArg);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        const code = msg.includes('No bundled public RPC') ? EIP1193_ERROR_CODES.UNSUPPORTED_METHOD : -32603;
+        const code = msg.includes(NO_CONFIGURED_RPC_ERROR_PREFIX) ? EIP1193_ERROR_CODES.UNSUPPORTED_METHOD : -32603;
         throw Object.assign(new Error(msg), { code });
       }
     }
@@ -113,7 +126,7 @@ async function handleEip1193JsonRpc(
         return await fetchEthBlockNumberHex(state.chainIdHex);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        const code = msg.includes('No bundled public RPC') ? EIP1193_ERROR_CODES.UNSUPPORTED_METHOD : -32603;
+        const code = msg.includes(NO_CONFIGURED_RPC_ERROR_PREFIX) ? EIP1193_ERROR_CODES.UNSUPPORTED_METHOD : -32603;
         throw Object.assign(new Error(msg), { code });
       }
     }
@@ -130,11 +143,11 @@ async function handleEip1193JsonRpc(
       if (!normalized) {
         throw Object.assign(new Error('Invalid chainId'), { code: -32602 });
       }
+      if (!(await isWalletEvmChainConfigured(normalized))) {
+        throw Object.assign(new Error('Unrecognized chain'), { code: 4902 });
+      }
       if (state.chainIdHex.toLowerCase() === normalized.toLowerCase()) {
         return null;
-      }
-      if (!isWalletBuiltinEvmChainIdHex(normalized)) {
-        throw Object.assign(new Error('Unrecognized chain'), { code: 4902 });
       }
       await setWalletChainIdHex(normalized);
       return null;
@@ -152,9 +165,10 @@ async function handleEip1193JsonRpc(
       if (!normalized) {
         throw Object.assign(new Error('Invalid chainId'), { code: -32602 });
       }
-      if (!isWalletBuiltinEvmChainIdHex(normalized)) {
-        throw Object.assign(new Error('Custom RPC chains are not supported yet'), {
-          code: EIP1193_ERROR_CODES.UNSUPPORTED_METHOD
+      // 自定义链只允许用户在侧栏显式添加；DApp 传入的 rpcUrls 不作为信任来源。
+      if (!(await isWalletEvmChainConfigured(normalized))) {
+        throw Object.assign(new Error('Unrecognized chain; add it in the wallet DApp settings first'), {
+          code: 4902
         });
       }
       await setWalletChainIdHex(normalized);
@@ -174,7 +188,7 @@ async function handleEip1193JsonRpc(
         return await broadcastSignedRawTransaction(state.chainIdHex, rawTx as Hex);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        const code = msg.includes('No bundled public RPC') ? EIP1193_ERROR_CODES.UNSUPPORTED_METHOD : -32603;
+        const code = msg.includes(NO_CONFIGURED_RPC_ERROR_PREFIX) ? EIP1193_ERROR_CODES.UNSUPPORTED_METHOD : -32603;
         throw Object.assign(new Error(msg), { code });
       }
     }
@@ -191,8 +205,8 @@ type BeginDeferredOutcome =
   | { kind: 'error'; error: { code: number | string; message: string } };
 
 /**
- * 站点连接前置：已授权则直接通过；否则检查是否与别的挂起请求互斥，再写入 pending 并打开连接批准弹窗�? *
- * @returns `authorized` | `deferred`（DApp 应等�?bridge 后续响应）| `error`
+ * 站点连接前置：已授权则直接通过；否则检查是否与别的挂起请求互斥，再写入 pending 并打开连接批准弹窗。
+ * @returns `authorized` | `deferred`（DApp 应等待 bridge 后续响应）| `error`
  */
 async function beginSiteConnectFlow(
   bridgeRequestId: string,
@@ -296,8 +310,10 @@ async function beginSiteConnectFlow(
 }
 
 /**
- * Bridge 总入口：�?`request.method` 分发�?EIP-1193 子流程、connect/disconnect 或显式不支持的方法�? *
- * @param request 已通过内容脚本校验的信封（�?`id`�? * @param sender Chrome `runtime` 消息发送者（用于 origin �?tabId�? * @returns 同步 `result`、错�?`error`、或 `deferred: true`（连�?签名待弹窗确认）
+ * Bridge 总入口：按 `request.method` 分发到 EIP-1193 子流程、connect/disconnect 或显式不支持的方法。
+ * @param request 已通过内容脚本校验的信封（含 `id`）
+ * @param sender Chrome `runtime` 消息发送者（用于 origin 与 tabId）
+ * @returns 同步 `result`、错误 `error`、或 `deferred: true`（连接/签名待弹窗确认）
  */
 export async function handleBridgeRequest(
   request: BridgeRequest,

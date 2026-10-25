@@ -1,4 +1,4 @@
-﻿import { EIP1193_ERROR_CODES } from '@plugin/shared';
+﻿import { EIP1193_ERROR_CODES, isWalletBuiltinEvmChainId } from '@plugin/shared';
 
 import type { SignApprovalResult } from '~/types';
 import { RUNTIME_MSG_DEFERRED_BRIDGE_RESULT } from '~lib/bridge/constants';
@@ -6,13 +6,13 @@ import { eip1193TxToSendParams } from '~lib/bridge/transaction/eip1193SendTransa
 import { clearPendingSendTransaction, getPendingSendTransaction } from '~lib/bridge/transaction/pendingSendTransaction';
 import { extLogInfo, extLogWarn } from '~lib/extensionLog';
 import { getOrUnlockLocalAccount, markUnlockedAccountUsed } from '~lib/vault/unlockSession';
-import { getWalletBuiltinChain } from '~lib/walletUi/readonlyEvmRpc';
+import { getWalletEvmChain, safeRpcErrorMessage } from '~lib/walletUi/readonlyEvmRpc';
 import { loadWalletUiState } from '~lib/walletUi/walletUiState';
 import { createPublicClient, getAddress, http, type TransactionSerializable } from '~web3/evm/viem';
 
 /**
  * **`eth_sendTransaction` 完成态**：口令解密 → 本地签名 → 按全局钱包设置 `evmTxSubmitMode`
- * 仅返回已签名 RLP，或经内置 RPC `eth_sendRawTransaction` 广播后返回交易哈希。
+ * 仅返回已签名 RLP，或经当前链（内置 / 自定义 RPC）`eth_sendRawTransaction` 广播后返回交易哈希。
  */
 
 async function closeApprovalWindowIfAny(windowId: number | undefined): Promise<void> {
@@ -50,11 +50,11 @@ export async function approvePendingSendTransactionAndNotify(password: string): 
 
   const state = await loadWalletUiState();
   const chainIdHex = state.chainIdHex as `0x${string}`;
-  const chain = getWalletBuiltinChain(chainIdHex);
+  const chain = await getWalletEvmChain(chainIdHex);
   if (!chain) {
     await clearPendingSendTransaction();
     await closeApprovalWindowIfAny(pending.approvalWindowId);
-    return { ok: false, error: '当前链无内置 RPC，无法签名或发送交易。' };
+    return { ok: false, error: '当前链未配置 RPC，无法签名或发送交易。' };
   }
 
   const parsed = eip1193TxToSendParams(pending.transaction, chainIdHex);
@@ -66,38 +66,41 @@ export async function approvePendingSendTransactionAndNotify(password: string): 
 
   const publicClient = createPublicClient({ chain, transport: http() });
 
-  let resultHex: `0x${string}`;
+  const signOnly = pending.pendingTxRpcMethod === 'eth_signTransaction' || state.evmTxSubmitMode === 'signOnly';
+  let serialized: `0x${string}`;
   try {
-    const serialized = await unlock.account.signTransaction({
+    serialized = await unlock.account.signTransaction({
       chainId: chain.id,
       ...parsed.params
     } as TransactionSerializable);
-    const signOnly = pending.pendingTxRpcMethod === 'eth_signTransaction' || state.evmTxSubmitMode === 'signOnly';
-    if (signOnly) {
-      resultHex = serialized;
-    } else {
-      resultHex = await publicClient.sendRawTransaction({ serializedTransaction: serialized });
-    }
-    await markUnlockedAccountUsed(addr);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    // 本地签名错误可能包含交易字段；只记录错误类型，不把原始 message 带进日志 / UI。
     extLogWarn('resolve_send_transaction', {
       requestId: pending.bridgeRequestId,
-      result:
-        pending.pendingTxRpcMethod === 'eth_signTransaction' || state.evmTxSubmitMode === 'signOnly'
-          ? 'sign_failed'
-          : 'send_failed',
-      message: msg
+      result: 'sign_failed',
+      errorName: e instanceof Error ? e.name : 'Error'
     });
-    return {
-      ok: false,
-      error:
-        msg ||
-        (pending.pendingTxRpcMethod === 'eth_signTransaction' || state.evmTxSubmitMode === 'signOnly'
-          ? '签名失败。'
-          : '发送交易失败。')
-    };
+    return { ok: false, error: '签名失败，请检查交易参数或账户状态后重试。' };
   }
+
+  let resultHex: `0x${string}`;
+  if (signOnly) {
+    resultHex = serialized;
+  } else {
+    try {
+      resultHex = await publicClient.sendRawTransaction({ serializedTransaction: serialized });
+    } catch (e) {
+      // RPC URL 可能含 key；已签名 RLP 也不应进入日志。统一使用脱敏摘要。
+      const message = safeRpcErrorMessage(e, !isWalletBuiltinEvmChainId(chain.id));
+      extLogWarn('resolve_send_transaction', {
+        requestId: pending.bridgeRequestId,
+        result: 'send_failed',
+        message
+      });
+      return { ok: false, error: message };
+    }
+  }
+  await markUnlockedAccountUsed(addr);
 
   const winId = pending.approvalWindowId;
   let tabNotified = false;
