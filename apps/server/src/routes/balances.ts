@@ -27,6 +27,7 @@ import {
   getEtherscanTokenCacheStaleTtlMs,
   getEtherscanTokenCacheTtlMs
 } from '../evm/etherscanV2.js';
+import { recordRateLimitRejection } from '../observability/metrics.js';
 import {
   consumeRateLimit,
   setRateLimitHeaders
@@ -77,6 +78,7 @@ const balancesRoutes: FastifyPluginAsync = async (app) => {
       setRateLimitHeaders(reply, rate);
 
       if (!rate.allowed) {
+        recordRateLimitRejection('balances');
         reply.header(
           'retry-after',
           String(Math.ceil(rate.retryAfterMs / 1000))

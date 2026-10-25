@@ -23,6 +23,7 @@ import {
   setSessionCookie
 } from '../auth/sessionCookie.js';
 import { isCorsOriginAllowed } from '../config/cors.js';
+import { recordRateLimitRejection } from '../observability/metrics.js';
 import { setRateLimitHeaders } from '../security/rateLimit.js';
 import {
   authChallengeSchema,
@@ -48,6 +49,7 @@ function enforceAuthRateLimit(
   if (rate.allowed) {
     return null;
   }
+  recordRateLimitRejection('auth');
   reply.header('retry-after', String(Math.ceil(rate.retryAfterMs / 1000)));
   request.log.warn({ retryAfterMs: rate.retryAfterMs }, 'auth_rate_limited');
   return reply.code(429).send({

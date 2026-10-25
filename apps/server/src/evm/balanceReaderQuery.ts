@@ -1,6 +1,7 @@
 import { createPublicClient, getAddress, http, isAddress } from 'viem';
 
 import { getServerRpcUrl } from '../config/chain.js';
+import { withUpstreamMetrics } from '../observability/metrics.js';
 
 /** 与 `packages/contracts/src/evm/BalanceBatchReader.sol`（`BalanceBatchReader`）对外 view 一致（含原子化方法与组合 `getBalances`） */
 export const evmBalanceBatchReaderAbi = [
@@ -141,12 +142,14 @@ export async function queryEvmBalanceBatch(params: {
   let tokenBalanceOk: readonly boolean[];
 
   try {
-    const out = await client.readContract({
-      address: params.readerAddress,
-      abi: evmBalanceBatchReaderAbi,
-      functionName: 'getBalances',
-      args: [params.accounts, params.tokenAddresses]
-    });
+    const out = await withUpstreamMetrics('rpc', () =>
+      client.readContract({
+        address: params.readerAddress,
+        abi: evmBalanceBatchReaderAbi,
+        functionName: 'getBalances',
+        args: [params.accounts, params.tokenAddresses]
+      })
+    );
     nativeBalances = out[0];
     tokenBalances = out[1];
     tokenBalanceOk = out[2];

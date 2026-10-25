@@ -12,7 +12,7 @@
 
 `P0（已完成）→ P1（已完成）→ P2 → P3 → P4`
 
-P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2-2 已完成会话级解锁 / 自动锁定；P2-3 已完成自定义 RPC 链；P2-6 已完成已连接站点搜索 / 分组 / 导出；P4-3 已完成安装 / 升级安全引导与商店物料，实际商店提交待发布账号；P2 / P3 其余项仍依赖产品范围与合约主线决策。
+P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2-2 已完成会话级解锁 / 自动锁定；P2-3 已完成自定义 RPC 链；P2-6 已完成已连接站点搜索 / 分组 / 导出；P4-3 已完成安装 / 升级安全引导与商店物料，实际商店提交待发布账号；P4-4 已完成 Prometheus 指标与上游可用性 / 限流观测，多实例共享限流 / 缓存 / 会话仍待 Redis / DB；P2 / P3 其余项仍依赖产品范围与合约主线决策。
 
 ---
 
@@ -29,7 +29,7 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 说明：
 
 - 会话已按 P4-5 改为 **HttpOnly Cookie + CSRF**（Web 不再使用 `sessionStorage`）；无 Origin 的 API 客户端仍可拿 Bearer token。
-- 会话默认文件持久化（`SERVER_SESSION_STORE=file`，生产默认）；challenge 仍为进程内存；多实例共享需 Redis / DB（见 P4-4）。
+- 会话默认文件持久化（`SERVER_SESSION_STORE=file`，生产默认）；challenge 仍为进程内存；多实例共享需 Redis / DB（后续）。
 - 交易广播当前只支持 **EVM**；Tron / BTC 广播需单独设计（见 P2 / 待拍板）。
 
 ---
@@ -45,7 +45,7 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 
 > **本轮执行记录（2026-10-22）**：P1-1 ~ P1-4 已落地。验证方式：`@plugin/shared` 重建；server `typecheck` / `lint` / `test`（9 项集成测试）；web `typecheck` / `lint` / `next build`；浏览器手工验证 `/balances` 入口及 `/balances/evm`、`/balances/tron`、`/balances/btc` 三张独立页（单链查询、取消、分页、CSV、空态 / 部分失败与 ERC-20 不可达提示；本地 Etherscan 网络不可达时 EVM 原生余额仍正常返回）。
 >
-> **仍存边界**：ERC-20 仍**只依赖 Etherscan**，无备用索引器；缓存 / 限流为**进程内存**，多实例需 Redis 等共享实现；Web 端 E2E 与真实链上大批量回归归入 P4-1 / P4-4。
+> **仍存边界**：ERC-20 仍**只依赖 Etherscan**，无备用索引器；缓存 / 限流为**进程内存**，多实例需 Redis 等共享实现；Web 端 E2E 与真实链上大批量回归归入 P4-1 / 后续。
 
 ---
 
@@ -86,12 +86,14 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 | P4-1 | Web / 扩展 E2E                                    | [ ]  | 覆盖登录、签名、广播、余额查询关键路径；CI 可运行                                                  |
 | P4-2 | 安全自检清单                                      | [x]  | 密钥边界、日志脱敏、CORS、CSRF、会话 / 限流、依赖审计逐项通过；清单见 [security.md](./security.md) |
 | P4-3 | 商店物料与首次运行引导                            | [x]  | 商店页、隐私说明、备份与安全提示、安装 / 升级引导（仓库侧完成；实际提交待发布账号）                |
-| P4-4 | 监控与运维                                        | [ ]  | 错误率、上游限流、RPC / Etherscan / TronGrid / Esplora 可用性可观测                                |
+| P4-4 | 监控与运维                                        | [x]  | 错误率、上游限流、RPC / Etherscan / TronGrid / Esplora 可用性可观测（进程内指标；多实例共享待后续） |
 | P4-5 | 会话安全生产化（HttpOnly Cookie / CSRF / 持久化） | [x]  | 不依赖 `sessionStorage`；跨站部署安全策略明确                                                      |
 
-> **P4-5 执行记录（2026-10-22）**：浏览器 `verify` 写 `wallet_session` HttpOnly Cookie（默认 `SameSite=Lax`、生产 `Secure`）；`/auth/me` 返回 CSRF token，`/tx/broadcast` 与 `/auth/logout` 校验 `x-csrf-token`；无 Origin 的 API 客户端仍走 Bearer。会话支持 `SERVER_SESSION_STORE=file` 原子落盘（默认 `logs/sessions.json`），生产缺 `SESSION_SECRET` 启动失败。CORS 改为允许凭据并放行 `x-csrf-token`。Web `/account` 与 `/balances` 已移除 `sessionStorage`。验证：server 17 项测试、`pnpm typecheck` / `lint` / `build`。跨站部署需同时设置 `SERVER_COOKIE_SAMESITE=none`、`SERVER_COOKIE_SECURE=1` 与 HTTPS；多实例会话共享仍归 P4-4。
+> **P4-5 执行记录（2026-10-22）**：浏览器 `verify` 写 `wallet_session` HttpOnly Cookie（默认 `SameSite=Lax`、生产 `Secure`）；`/auth/me` 返回 CSRF token，`/tx/broadcast` 与 `/auth/logout` 校验 `x-csrf-token`；无 Origin 的 API 客户端仍走 Bearer。会话支持 `SERVER_SESSION_STORE=file` 原子落盘（默认 `logs/sessions.json`），生产缺 `SESSION_SECRET` 启动失败。CORS 改为允许凭据并放行 `x-csrf-token`。Web `/account` 与 `/balances` 已移除 `sessionStorage`。验证：server 17 项测试、`pnpm typecheck` / `lint` / `build`。跨站部署需同时设置 `SERVER_COOKIE_SAMESITE=none`、`SERVER_COOKIE_SECURE=1` 与 HTTPS；多实例共享（会话 / 限流 / 缓存）仍待 Redis / DB（后续）。
 >
 > **P4-3 执行记录（2026-10-25）**：新增扩展页 `tabs/welcome.tsx` 与后台启动辅助 `utils/extension/onboarding.ts`。`chrome.runtime.onInstalled` 在**首次安装或版本变化**时打开「安全与使用指南」：安装前台打开、升级后台打开；同版本重载不重复弹页（状态键 `web3_wallet_onboarding_launch_v1`，仅存最近版本号）。引导页覆盖离线备份、逐笔签名核对、本地口令解密、自定义 RPC 信任边界、隐私说明与 manifest 权限用途；侧栏概览新增常驻入口。商店侧新增 [extension-store-listing.md](../product/extension-store-listing.md)（商品文案、截图脚本、隐私实践答复、发布检查清单）与 [extension-privacy-policy.md](../product/extension-privacy-policy.md)（本地数据、RPC / DApp 通信、保留与删除）；`package.json` 更新商店名称与简短描述。验证：扩展 `typecheck` / `lint` / `plasmo build`。**实际商店提交仍需**公开隐私政策 URL、支持链接、商店账号与 4–5 张无敏感数据的截图；当前 `host_permissions` 含 `https://*/*` 以支持自定义 RPC，后续可评估 optional host permissions。
+>
+> **P4-4 执行记录（2026-10-25）**：新增 `GET /metrics`（Prometheus text format），仅在配置 `SERVER_METRICS_TOKEN` 时启用，要求 `Authorization: Bearer <token>`（常量时间比较）；未配置返回 404。指标覆盖 HTTP 请求 / 4xx / 5xx / 耗时、本地 auth / 余额限流拒绝，以及 RPC / Etherscan / TronGrid / Esplora 的成功 / 失败 / 上游限流 / 最近成败时间戳 / Etherscan 冷却剩余时间；标签只含路由模板、方法、状态码与上游名，不含地址、URL、API Key 或请求体。实现见 `src/observability/metrics.ts`、`prometheusText.ts`、`src/routes/metrics.ts`；HTTP 采集在 `app.ts` 的 `onResponse`，上游封装覆盖 `rpcForward` / `etherscanV2` / `tronGrid` / `esplora` / `balanceReaderQuery`。验证：server `typecheck` / `lint` / `test`（23 项）。**边界**：指标为进程内存、单实例；多实例共享限流 / 缓存 / 会话仍需 Redis / DB，告警规则与仪表盘由部署侧配置。
 
 ---
 

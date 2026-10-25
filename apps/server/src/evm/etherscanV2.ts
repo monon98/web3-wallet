@@ -2,6 +2,10 @@ import { getAddress, isAddress } from 'viem';
 
 import { MemoryTtlCache } from '../balances/memoryTtlCache.js';
 import { getEtherscanApiKey, getEtherscanApiUrl } from '../config/chain.js';
+import {
+  recordUpstreamRateLimited,
+  withUpstreamMetrics
+} from '../observability/metrics.js';
 
 export class EtherscanError extends Error {
   constructor(
@@ -191,31 +195,33 @@ async function etherscanGet(
   const base = getEtherscanApiUrl().replace(/\/$/, '');
   const search = new URLSearchParams({ ...query, apikey: apiKey });
 
-  let res: Response;
-  try {
-    res = await fetch(`${base}?${search.toString()}`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(30_000)
-    });
-  } catch {
-    throw new EtherscanError('etherscan_unreachable', 502);
-  }
+  return withUpstreamMetrics('etherscan', async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${base}?${search.toString()}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(30_000)
+      });
+    } catch {
+      throw new EtherscanError('etherscan_unreachable', 502);
+    }
 
-  if (!res.ok) {
-    throw new EtherscanError(
-      res.status === 429 ? 'etherscan_rate_limited' : 'etherscan_http_error',
-      res.status === 429 ? 429 : 502
-    );
-  }
+    if (!res.ok) {
+      throw new EtherscanError(
+        res.status === 429 ? 'etherscan_rate_limited' : 'etherscan_http_error',
+        res.status === 429 ? 429 : 502
+      );
+    }
 
-  let raw: EtherscanRawEnvelope;
-  try {
-    raw = (await res.json()) as EtherscanRawEnvelope;
-  } catch {
-    throw new EtherscanError('invalid_etherscan_result', 502);
-  }
+    let raw: EtherscanRawEnvelope;
+    try {
+      raw = (await res.json()) as EtherscanRawEnvelope;
+    } catch {
+      throw new EtherscanError('invalid_etherscan_result', 502);
+    }
 
-  return raw;
+    return raw;
+  });
 }
 
 function statusToHttpHint(message: string | undefined): number {
@@ -267,6 +273,9 @@ export async function getNativeBalancesBatchEtherscan(params: {
 
   if (raw.status !== '1' || raw.result === undefined) {
     const hint = raw.message ?? 'etherscan_error';
+    if (isRateLimitMessage(raw.message)) {
+      recordUpstreamRateLimited('etherscan');
+    }
     throw new EtherscanError(hint, statusToHttpHint(raw.message));
   }
 
@@ -419,6 +428,7 @@ export async function getAddressTokenHoldingsEtherscan(params: {
   if (raw.status !== '1') {
     const msg = raw.message ?? 'etherscan_error';
     if (isRateLimitMessage(msg)) {
+      recordUpstreamRateLimited('etherscan');
       markEtherscanUnavailable();
     }
     const retryAfterMs = getEtherscanCooldownRemainingMs();

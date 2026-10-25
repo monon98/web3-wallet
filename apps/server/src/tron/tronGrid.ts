@@ -1,4 +1,5 @@
 import { getTronApiKey, getTronApiUrl } from '../config/chain.js';
+import { withUpstreamMetrics } from '../observability/metrics.js';
 import { isTronBase58Address } from './tronAddress.js';
 
 export class TronGridError extends Error {
@@ -76,34 +77,36 @@ async function tronGridGet(path: string): Promise<TronGridEnvelope> {
     headers['TRON-PRO-API-KEY'] = apiKey;
   }
 
-  let res: Response;
-  try {
-    res = await fetch(`${base}${path}`, {
-      method: 'GET',
-      headers,
-      signal: AbortSignal.timeout(30_000)
-    });
-  } catch {
-    throw new TronGridError('tron_grid_unreachable', 502);
-  }
+  return withUpstreamMetrics('trongrid', async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${base}${path}`, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(30_000)
+      });
+    } catch {
+      throw new TronGridError('tron_grid_unreachable', 502);
+    }
 
-  if (!res.ok) {
-    throw new TronGridError(
-      `tron_grid_http_${res.status}`,
-      res.status === 429 ? 429 : 502
-    );
-  }
+    if (!res.ok) {
+      throw new TronGridError(
+        `tron_grid_http_${res.status}`,
+        res.status === 429 ? 429 : 502
+      );
+    }
 
-  let raw: unknown;
-  try {
-    raw = await res.json();
-  } catch {
-    throw new TronGridError('tron_grid_invalid_response', 502);
-  }
-  if (typeof raw !== 'object' || raw === null) {
-    throw new TronGridError('tron_grid_invalid_response', 502);
-  }
-  return raw as TronGridEnvelope;
+    let raw: unknown;
+    try {
+      raw = await res.json();
+    } catch {
+      throw new TronGridError('tron_grid_invalid_response', 502);
+    }
+    if (typeof raw !== 'object' || raw === null) {
+      throw new TronGridError('tron_grid_invalid_response', 502);
+    }
+    return raw as TronGridEnvelope;
+  });
 }
 
 function parseAccountEntry(

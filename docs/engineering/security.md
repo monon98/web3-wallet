@@ -1,6 +1,6 @@
-# 安全自检（P4-2 / P4-5 / P2-2 / P2-3 / P2-6 / P4-3）
+# 安全自检（P4-2 / P4-5 / P2-2 / P2-3 / P2-6 / P4-3 / P4-4）
 
-> **状态**：2026-10-22 完成首轮自检与 P4-5 会话改造；2026-10-23 补充 P2-2 扩展解锁态与 P2-3 自定义 RPC 链；2026-10-25 补充 P2-6 已连接站点导出边界与 P4-3 安装 / 升级引导、商店隐私文案。覆盖当前已实现的扩展 / Web / 服务端边界。
+> **状态**：2026-10-22 完成首轮自检与 P4-5 会话改造；2026-10-23 补充 P2-2 扩展解锁态与 P2-3 自定义 RPC 链；2026-10-25 补充 P2-6 已连接站点导出边界、P4-3 安装 / 升级引导与商店隐私文案，以及 P4-4 指标端点鉴权 / 标签边界。覆盖当前已实现的扩展 / Web / 服务端边界。
 >
 > **适用范围**：`apps/extension`、`apps/web`、`apps/server` 与根依赖锁定。接口语义以 [TECHNICAL-SOLUTION.md](./TECHNICAL-SOLUTION.md) §5 为准。
 
@@ -27,8 +27,9 @@
 | CORS             | 通过             | `SERVER_CORS_ORIGINS` 白名单；开发默认仅 `http://localhost:3000` / `127.0.0.1:3000`；生产未配置时不放行跨域；auth challenge / verify 对非白名单 `Origin` 直接 403；测试覆盖                                                                                            |
 | CSRF             | 通过             | 浏览器会话改为 HttpOnly Cookie；写接口（tx / logout）要求 `x-csrf-token` = HMAC(SESSION_SECRET, sessionToken)，常量时间比较；`SameSite` 可配（默认 Lax），跨站需 None + Secure；CORS 显式白名单且 `credentials=true`                                                   |
 | 会话安全         | 通过             | challenge 一次性 5 分钟；session token 为 32 字节随机值，服务端只存 SHA-256 摘要，24 小时过期；Cookie `HttpOnly` + `SameSite` + 生产 `Secure`；会话可文件持久化，重启不丢；token 不进 Web 存储                                                                         |
-| 限流             | 通过（单实例）   | 余额查询匿名 30 / 登录 120 次/分钟；auth challenge / verify 默认 20 次/分钟/IP；固定 60s 窗口、桶数量上限；多实例需 Redis（P4-4）                                                                                                                                      |
+| 限流             | 通过（单实例）   | 余额查询匿名 30 / 登录 120 次/分钟；auth challenge / verify 默认 20 次/分钟/IP；固定 60s 窗口、桶数量上限；多实例需 Redis（后续）                                                                                                                                      |
 | 安全响应头       | 通过             | 所有 API 响应补 `x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer`、`permissions-policy`；auth 响应 `cache-control: no-store`                                                                                                  |
+| 运维指标         | 通过             | P4-4：`GET /metrics` 仅在配置 `SERVER_METRICS_TOKEN` 后开放，Bearer 常量时间比较；未配置返回 404；标签只含路由模板 / 方法 / 状态码 / 上游名，不含地址、URL、API Key 或请求体；指标进程内存、单实例                                                                      |
 | 代理与客户端 IP  | 通过（默认安全） | 默认 `trustProxy=false`；仅在 `SERVER_TRUST_PROXY=1` 且位于可信反向代理后，才使用 `X-Forwarded-For` 作为限流 IP                                                                                                                                                        |
 | 请求 ID          | 通过             | 客户端 `x-request-id` 仅接受 `[A-Za-z0-9._-]{1,64}`，否则生成 UUID，避免日志注入 / 超长字段                                                                                                                                                                            |
 | 依赖审计         | 通过（运行时）   | `pnpm audit --prod` **0 漏洞**；Next **16.4.2**、Fastify **5.12.7**、`@fastify/*` 已升级；`axios` / `fast-uri` / `ws` / `follow-redirects` / `sass` / `@parcel/watcher` 等通过 `pnpm.overrides` 锁定到修复版本；Plasmo 归入扩展 devDependencies                        |
@@ -40,6 +41,7 @@
 | ------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `SERVER_CORS_ORIGINS`                       | Web 跨域白名单，逗号分隔的完整 Origin    | 开发默认 `http://localhost:3000,http://127.0.0.1:3000`；生产必须显式配置（同源反代部署也需列入实际 Origin）；不支持 `*` |
 | `SERVER_TRUST_PROXY`                        | 是否信任反向代理的 `X-Forwarded-For`     | 默认关闭；仅可信代理后设为 `1`                                                                                          |
+| `SERVER_METRICS_TOKEN`                      | `GET /metrics` Bearer 鉴权 token         | 非空才启用端点；未设置返回 404；使用长随机值，勿提交仓库                                                                |
 | `SERVER_AUTH_RATE_LIMIT_PER_MINUTE`         | auth challenge / verify 每 IP 每分钟限额 | 默认 `20`                                                                                                               |
 | `SESSION_SECRET`                            | CSRF token HMAC 密钥                     | 生产**必填**长随机值；缺失则启动失败，开发使用进程级随机 fallback                                                       |
 | `SERVER_SESSION_STORE`                      | 会话存储模式                             | `memory` / `file`；开发默认 memory，生产默认 file                                                                       |
@@ -59,7 +61,8 @@
 - **站点导出是用户主动数据外带**：P2-6 的 CSV 只含站点来源、公开 EVM 地址、授权范围、标签页 ID 与过期时间，不含密钥材料或 RPC 配置；文件下载后脱离扩展保护，用户应自行保管。
 - **商店提交仍是外部动作**：P4-3 已在仓库内准备引导页、商品文案、隐私政策草稿与截图脚本；公开隐私政策 URL、支持链接、商店后台主体信息与截图仍须由发布者在提交前补齐，代码本身不能代替商店审核。
 - **主机权限仍较宽**：扩展为支持用户配置任意 HTTPS RPC，`host_permissions` 仍含 `https://*/*`；内容脚本注入范围由 `CONTENT_SCRIPT_MATCH_PATTERNS` 限制在本地白名单。商店审核可能要求解释，后续可评估按自定义链申请 optional host permissions。
-- **会话持久化仍是单实例文件**：`SERVER_SESSION_STORE=file` 解决重启失效，但多实例不能共用本地文件；横向扩展前需接 Redis / DB（P4-4）。
+- **会话持久化仍是单实例文件**：`SERVER_SESSION_STORE=file` 解决重启失效，但多实例不能共用本地文件；横向扩展前需接 Redis / DB（后续）。
+- **指标端点不是告警系统**：P4-4 的 `/metrics` 只提供进程内计数，需由 Prometheus 抓取并配置告警；多实例要按 `instance` 聚合。端点必须配置高熵 `SERVER_METRICS_TOKEN`，或只在内网 / 网关后暴露，避免运维信息外泄。
 - **CORS 是浏览器读取边界**：非浏览器客户端不受 CORS 限制；敏感写接口仍依赖会话 + CSRF + 签名校验，不以 CORS 代替鉴权。
 - **全量依赖审计残余**：`pnpm audit` 的高危项集中在 Plasmo / Parcel / 构建工具链；`pnpm audit --prod` 已清零。构建机仍应视为受控环境，升级 Plasmo 时复跑全量审计。
 - **Web CSP / XSS**：当前未配置严格 CSP；Cookie 为 HttpOnly，XSS 不能直接读 token，但仍可代用户发起请求。Web 上线前应补 CSP 与依赖升级策略。
@@ -74,4 +77,4 @@ pnpm typecheck
 pnpm lint
 ```
 
-服务端安全回归测试位于 `apps/server/test/authSecurity.test.ts`，覆盖 CORS 凭据 / 放行 / 拒绝、非白名单 Origin 的 challenge 拒绝、HttpOnly Cookie 登录、CSRF 拒绝与注销、auth 限流、安全响应头与 `no-store`；`sessionStore.test.ts` 覆盖会话文件加载 / 写入 / 删除，另含 Bearer API 客户端兼容用例。当前服务端测试共 17 项。
+服务端安全回归测试位于 `apps/server/test/authSecurity.test.ts`，覆盖 CORS 凭据 / 放行 / 拒绝、非白名单 Origin 的 challenge 拒绝、HttpOnly Cookie 登录、CSRF 拒绝与注销、auth 限流、安全响应头与 `no-store`；`sessionStore.test.ts` 覆盖会话文件加载 / 写入 / 删除，另含 Bearer API 客户端兼容用例；`metrics.test.ts` 覆盖 token 鉴权、路由模板标签、4xx 统计、上游成功 / 429 与本地限流计数。当前服务端测试共 23 项。

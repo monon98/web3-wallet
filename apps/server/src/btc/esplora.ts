@@ -1,4 +1,5 @@
 import { getBtcApiUrl } from '../config/chain.js';
+import { withUpstreamMetrics } from '../observability/metrics.js';
 import { isBtcMainnetAddress } from './btcAddress.js';
 
 /**
@@ -77,29 +78,31 @@ function toNonNegativeInt(value: unknown): number {
 async function esploraGet(path: string): Promise<unknown> {
   const base = getBtcApiUrl().replace(/\/+$/, '');
 
-  let res: Response;
-  try {
-    res = await fetch(`${base}${path}`, {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-      signal: AbortSignal.timeout(30_000)
-    });
-  } catch {
-    throw new EsploraError('esplora_unreachable', 502);
-  }
+  return withUpstreamMetrics('esplora', async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${base}${path}`, {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(30_000)
+      });
+    } catch {
+      throw new EsploraError('esplora_unreachable', 502);
+    }
 
-  if (!res.ok) {
-    throw new EsploraError(
-      `esplora_http_${res.status}`,
-      res.status === 429 ? 429 : 502
-    );
-  }
+    if (!res.ok) {
+      throw new EsploraError(
+        `esplora_http_${res.status}`,
+        res.status === 429 ? 429 : 502
+      );
+    }
 
-  try {
-    return await res.json();
-  } catch {
-    throw new EsploraError('esplora_invalid_response', 502);
-  }
+    try {
+      return await res.json();
+    } catch {
+      throw new EsploraError('esplora_invalid_response', 502);
+    }
+  });
 }
 
 function parseAddressBalance(address: string, raw: unknown): BtcAddressBalance {

@@ -1,3 +1,4 @@
+import { withUpstreamMetrics } from '../observability/metrics.js';
 import { RPC_ALLOWED_METHODS, RPC_MAX_BATCH } from './rpcAllowlist.js';
 
 type RpcItem = {
@@ -67,24 +68,26 @@ export async function forwardToRpc(
   rpcUrl: string,
   body: unknown
 ): Promise<unknown> {
-  const res = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60_000)
+  return withUpstreamMetrics('rpc', async () => {
+    const res = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60_000)
+    });
+
+    const text = await res.text();
+    let json: unknown;
+    try {
+      json = JSON.parse(text) as unknown;
+    } catch {
+      throw new RpcForwardError('upstream_non_json', 502);
+    }
+
+    if (!res.ok) {
+      throw new RpcForwardError(`upstream_http_${res.status}`, 502);
+    }
+
+    return json;
   });
-
-  const text = await res.text();
-  let json: unknown;
-  try {
-    json = JSON.parse(text) as unknown;
-  } catch {
-    throw new RpcForwardError('upstream_non_json', 502);
-  }
-
-  if (!res.ok) {
-    throw new RpcForwardError(`upstream_http_${res.status}`, 502);
-  }
-
-  return json;
 }

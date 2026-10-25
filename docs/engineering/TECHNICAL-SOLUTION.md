@@ -49,7 +49,7 @@
   P4-2 安全自检：CORS 改为 **`SERVER_CORS_ORIGINS` 白名单**（开发默认 localhost:3000；生产未配置不放行；auth challenge / verify 对非白名单 Origin 返回 403）；auth challenge / verify 新增按 IP 限流（`SERVER_AUTH_RATE_LIMIT_PER_MINUTE`，默认 20 次/分钟）；所有 API 响应补安全头，auth 响应 `cache-control: no-store`；access log 改记路由模板，Pino redaction 扩展；`x-request-id` 白名单校验；`SERVER_TRUST_PROXY` 默认关闭。依赖升级 Next **16.4.2**、Fastify **5.12.7**、`@fastify/cors` **11.3.1**、`@fastify/swagger` **9.9.2**、`@fastify/swagger-ui` **6.1.2**、tronweb **6.5.1**，并用 `pnpm.overrides` 锁定 axios / fast-uri / ws / follow-redirects / sass / @parcel/watcher 等修复版本；**`pnpm audit --prod` 0 漏洞**，Plasmo 移至扩展 devDependencies。新增 `authSecurity.test.ts` 与 [security.md](./security.md)，服务端测试 14 项通过。§5.4、§6、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[security.md](./security.md) 同步；Cookie / CSRF / 持久化仍归 P4-5。
 
 - **0.55** · 2026-10-22
-  P4-5 会话安全生产化：浏览器 `POST /api/v1/auth/verify` 改为写入 **HttpOnly `wallet_session` Cookie**（默认 `SameSite=Lax`、生产 `Secure`），响应返回 `csrfToken` 且不再下发 sessionToken；`GET /api/v1/auth/me` 对 Cookie 会话返回 CSRF token；`POST /api/v1/tx/broadcast` 与 `POST /api/v1/auth/logout` 校验 `x-csrf-token`（HMAC(SESSION_SECRET, sessionToken)）。无 Origin 的 API 客户端保留 Bearer。会话新增 **`SERVER_SESSION_STORE=file`** 原子文件持久化（生产默认，`SERVER_SESSION_FILE` 默认 `logs/sessions.json`），`SESSION_SECRET` 生产必填；CORS 改为 `credentials=true` 并放行 `x-csrf-token`。Web `/account`、`/balances` 移除 `sessionStorage`，CSRF token 只存页面内存；新增 `@fastify/cookie`、`sessionCookie.ts` / `sessionAuth.ts` / `csrf.ts` / `sessionStore.ts` 与 `sessionStore.test.ts`，服务端测试 17 项通过。§5.2、§5.4、§6、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[web.md](./web.md)、[security.md](./security.md)、[.env.example](../../.env.example) 同步；多实例共享会话与 Web CSP 仍待 P4-4 / 后续。
+  P4-5 会话安全生产化：浏览器 `POST /api/v1/auth/verify` 改为写入 **HttpOnly `wallet_session` Cookie**（默认 `SameSite=Lax`、生产 `Secure`），响应返回 `csrfToken` 且不再下发 sessionToken；`GET /api/v1/auth/me` 对 Cookie 会话返回 CSRF token；`POST /api/v1/tx/broadcast` 与 `POST /api/v1/auth/logout` 校验 `x-csrf-token`（HMAC(SESSION_SECRET, sessionToken)）。无 Origin 的 API 客户端保留 Bearer。会话新增 **`SERVER_SESSION_STORE=file`** 原子文件持久化（生产默认，`SERVER_SESSION_FILE` 默认 `logs/sessions.json`），`SESSION_SECRET` 生产必填；CORS 改为 `credentials=true` 并放行 `x-csrf-token`。Web `/account`、`/balances` 移除 `sessionStorage`，CSRF token 只存页面内存；新增 `@fastify/cookie`、`sessionCookie.ts` / `sessionAuth.ts` / `csrf.ts` / `sessionStore.ts` 与 `sessionStore.test.ts`，服务端测试 17 项通过。§5.2、§5.4、§6、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[web.md](./web.md)、[security.md](./security.md)、[.env.example](../../.env.example) 同步；多实例共享会话与 Web CSP 仍待后续。
 
 - **0.56** · 2026-10-23
   P2-2 会话级解锁 / 自动锁定：解密后的 viem 账户仅缓存在 **background 内存**（[unlockSession.ts](../../apps/extension/src/extension/utils/vault/unlockSession.ts)），按签名地址隔离，不写 `chrome.storage`、不进入 content script / 网页；默认空闲 **15 分钟**，侧栏「DApp 全局设置 → 账户解锁」可配 **1–120 分钟**（[unlockSettings.ts](../../apps/extension/src/extension/utils/vault/unlockSettings.ts)），成功签名 / 广播后重新计时，并支持手动「立即锁定全部」。EVM 的 `personal_sign` / `eth_sign`、EIP-712、`eth_sendTransaction` / `eth_signTransaction` 在解锁态免重复口令，但每个审批弹窗仍须确认；账户已从 vault 删除、TTL 过期、手动锁定或 Service Worker 休眠后必须重新输入口令。新增 `RUNTIME_MSG_GET_UNLOCK_STATUS` / `RUNTIME_MSG_LOCK_UNLOCKED_ACCOUNTS`、[useSignerUnlockStatus.ts](../../apps/extension/src/extension/hooks/useSignerUnlockStatus.ts) 与侧栏 [unlockSessionSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/unlockSessionSection.tsx)。§4.1、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[extension.md](./extension.md)、[security.md](./security.md)、[prd-extension.md](../product/prd-extension.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步。
@@ -62,6 +62,9 @@
 
 - **0.59** · 2026-10-25
   P4-3 商店物料与首次运行引导：新增扩展页 [welcome.tsx](../../apps/extension/src/tabs/welcome.tsx) 与后台辅助 [onboarding.ts](../../apps/extension/src/extension/utils/extension/onboarding.ts)。`chrome.runtime.onInstalled` 在**首次安装或版本变化**时打开「安全与使用指南」（安装前台 / 升级后台，同版本去重；状态键 `web3_wallet_onboarding_launch_v1` 只存最近版本号），侧栏概览保留常驻入口。页面覆盖离线备份、逐笔签名核对、本地口令解密、自定义 RPC 信任边界、隐私说明与 manifest 权限用途。新增 [extension-store-listing.md](../product/extension-store-listing.md)（商品文案、截图脚本、隐私实践与发布清单）与 [extension-privacy-policy.md](../product/extension-privacy-policy.md)；`package.json` 更新商店名称与简短描述。§4.1、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[extension.md](./extension.md)、[security.md](./security.md)、[prd-extension.md](../product/prd-extension.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md) 同步。
+
+- **0.60** · 2026-10-25
+  P4-4 监控与运维：新增 **`GET /metrics`**（Prometheus text format，参见 [metrics.ts](../../apps/server/src/observability/metrics.ts) / [prometheusText.ts](../../apps/server/src/observability/prometheusText.ts)）。仅在配置 `SERVER_METRICS_TOKEN` 时启用，要求 `Authorization: Bearer <token>`（常量时间比较）；未配置返回 404，避免默认暴露内部计数。指标覆盖 HTTP 请求 / 4xx / 5xx / 耗时（按路由模板）、本地 auth / 余额限流拒绝，以及 RPC / Etherscan / TronGrid / Esplora 的成功 / 失败 / 上游限流 / 最近成败时间戳 / Etherscan 冷却剩余时间；标签不含地址、URL、API Key 或请求体。HTTP 采集在 Fastify `onResponse`，上游封装覆盖 `rpcForward` / `etherscanV2` / `tronGrid` / `esplora` / `balanceReaderQuery`；新增 `metrics.test.ts`，服务端测试 23 项通过。指标为进程内存、单实例，多实例需按 Prometheus `instance` 聚合，共享限流 / 缓存 / 会话仍待 Redis / DB。§5.4、§8、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[security.md](./security.md)、[.env.example](../../.env.example) 同步。
 
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
@@ -417,6 +420,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
   - EVM 原生余额仍为 **RPC 优先、Etherscan 兜底**；ERC-20 仍为 **Etherscan-only**，服务端 token 缓存默认新鲜 60s / stale 30min，不可达时行内返回 `etherscan_unreachable`（含冷却提示），不中断原生余额。
   - `GET /api/v1/balances/status` → 返回每链地址上限、缓存 TTL、匿名 / 登录限额与上游配置（RPC / Etherscan / Tron Key / BTC 自定义端点，以及 Etherscan 冷却剩余时间）；不含密钥。
   - 原分链端点（`/api/v1/evm/explorer/*`、`/api/v1/tron/explorer/*`、`/api/v1/btc/explorer/*`）保留，用于单链调试与兼容。
+- **运维指标（P4-4 已实现，非业务 API）**：`GET /metrics` 返回 Prometheus text（0.0.4）；仅 `SERVER_METRICS_TOKEN` 非空时启用，要求 `Authorization: Bearer <token>`，未配置返回 404。覆盖 HTTP 请求 / 4xx / 5xx / 耗时、本地限流拒绝，以及 RPC / Etherscan / TronGrid / Esplora 的成功 / 失败 / 上游限流 / 最近成败时间戳 / Etherscan 冷却；标签只含路由模板与上游名，不含地址、URL、API Key 或请求体。指标为进程内存、单实例，多实例按 Prometheus `instance` 聚合。
 - 业务资源：`/api/v1/...` 按领域再分。
 - **EVM 链网关（已实现骨架）**：
   - `POST /api/v1/evm/rpc`：向 `SERVER_RPC_URL` 转发 JSON-RPC（**方法白名单**，含常见只读与 `eth_sendRawTransaction`；批量请求最多 10 条）。
@@ -457,6 +461,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | `LOG_LEVEL` / `LOG_PRETTY`                    | Pino 级别；`LOG_PRETTY` 控制开发态控制台是否 pino-pretty                                                                                                                           |
 | `SERVER_CORS_ORIGINS`                         | Web 跨域白名单（逗号分隔完整 Origin）；开发默认 `http://localhost:3000,http://127.0.0.1:3000`，生产必须显式配置；不支持 `*`                                                        |
 | `SERVER_TRUST_PROXY`                          | `1` / `true` 时信任反向代理的 `X-Forwarded-For` 作为限流 IP；默认关闭，仅可信代理后开启                                                                                            |
+| `SERVER_METRICS_TOKEN`                        | （可选）非空时启用 `GET /metrics`（Prometheus text）；请求需 `Authorization: Bearer <token>`；未配置返回 404；勿提交仓库                                                           |
 | `SERVER_RPC_URL`                              | 服务端 EVM JSON-RPC（`POST /api/v1/evm/rpc` 上游）；配置后也作为**原生余额**首选数据源（`eth_chainId` 必须与请求链一致，否则回退 Etherscan）                                       |
 | `ETHERSCAN_API_KEY`                           | [Etherscan API V2](https://docs.etherscan.io/introduction) 密钥（勿提交仓库；仅服务端使用）                                                                                        |
 | `ETHERSCAN_API_URL`                           | （可选）V2 API 根地址，默认 `https://api.etherscan.io/v2/api`；网络不可达时可指向自建 / 受控代理                                                                                   |
@@ -502,7 +507,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 | 服务端误用私钥       | 架构上服务端不持有用户私钥；代码审查与密钥管理仅针对服务账户                                     |
 | 依赖供应链漏洞       | Next / Fastify / `@fastify/*` 升级；`pnpm.overrides` 锁定修复版本；`pnpm audit --prod` 0 漏洞    |
 
-> **当前登录会话（P4-5）**：Web 使用 HttpOnly Cookie，页面只在内存保存 `/auth/me` 返回的 CSRF token；同站跨端口联调默认 `SameSite=Lax`，跨站部署需 `SameSite=None` + `Secure` + HTTPS。服务端会话默认文件持久化，单实例重启不丢；多实例共享与 Web CSP 仍待后续项（见 [BACKLOG.md](./BACKLOG.md) P4-4 与 [security.md](./security.md)）。
+> **当前登录会话（P4-5）**：Web 使用 HttpOnly Cookie，页面只在内存保存 `/auth/me` 返回的 CSRF token；同站跨端口联调默认 `SameSite=Lax`，跨站部署需 `SameSite=None` + `Secure` + HTTPS。服务端会话默认文件持久化，单实例重启不丢；多实例共享与 Web CSP 仍待后续项（见 [BACKLOG.md](./BACKLOG.md) 与 [security.md](./security.md)）。
 
 ---
 
@@ -546,7 +551,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### 阶段 5：质量与发布（持续）
 
-- E2E、商店与运维监控；安全自检首轮已完成（[security.md](./security.md)），Cookie / CSRF / 文件持久化已由 P4-5 落地，安装 / 升级引导与商店物料已由 P4-3 落地（实际提交待发布账号），Web CSP 仍待补
+- E2E、商店实际提交与运维监控；安全自检首轮已完成（[security.md](./security.md)），Cookie / CSRF / 文件持久化已由 P4-5 落地，安装 / 升级引导与商店物料已由 P4-3 落地（实际提交待发布账号），Prometheus 指标已由 P4-4 落地；Web CSP 与多实例共享限流 / 缓存 / 会话仍待补
 
 **依赖顺序**：阶段 0 → 阶段 1 →（阶段 4 最小合约 + 阶段 3 读链可并行）→ 阶段 2 全链路 → 迭代扩展。
 
@@ -563,11 +568,12 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 - **自定义 RPC 链（P2-3，已定）**：仅允许用户在扩展侧栏显式添加（最多 20 个），内置链不可覆盖；新增 / 修改 RPC 时校验 `eth_chainId`；RPC URL 仅 HTTPS 或 `localhost` / `127.0.0.1` HTTP，禁止内嵌凭据 / fragment；配置只存扩展本机 `chrome.storage.local`。`wallet_switchEthereumChain` 可切到已配置自定义链；`wallet_addEthereumChain` 不自动落库未知链（DApp 的 `rpcUrls` 不作为信任来源，返回 4902）。自定义 RPC 可观察公开地址与广播交易，属用户信任决策，不能替代节点诚实性保证。
 - **Tron**：网络（主网/测试网）、API 供应商与 Key 策略；**插件 DApp 链库已定 `tronweb`**（注入面与 TronLink 互操作，实现分期）
 - **BTC**：区块数据源已选 **Esplora**（默认 Blockstream 公共实例，`SERVER_BTC_API_URL` 可切换自建 / 其它实例）；是否提供**代广播**及合规边界仍待定
-- **Auth 会话**：P4-5 已完成 HttpOnly Cookie + CSRF + 单实例文件持久化；仍待决定 **Redis / DB 多实例共享**、Web CSP 与 cross-site Cookie 的最终部署拓扑（见 P4-4）。
+- **Auth 会话**：P4-5 已完成 HttpOnly Cookie + CSRF + 单实例文件持久化；仍待决定 **Redis / DB 多实例共享**、Web CSP 与 cross-site Cookie 的最终部署拓扑（后续）。
 - **扩展解锁态（P2-2，已定）**：解密后的可签名账户只放 **background 内存**；按地址隔离；空闲 TTL 默认 15 分钟，可配 1–120 分钟；成功签名 / 广播后重新计时；支持手动锁定全部；不持久化到 `chrome.storage` / `chrome.storage.session`。MV3 Service Worker 被回收、浏览器重启或扩展重载后需重新输入口令；后续若要求跨 Service Worker 存活，需单独评估非导出密钥封装方案，不能直接落盘明文/口令。
 - **已连接站点搜索 / 分组 / 导出（P2-6，已定）**：视图数据仅来自 `siteAuthSessions`；搜索匹配 origin / 公开地址；分组支持暴露地址与授权范围。CSV 导出只包含 origin、公开 EVM 地址、授权范围、标签页 ID 与过期时间，不包含私钥、助记词、口令、RPC URL 等配置，并对公式起始字符做转义。
 - **首次安装 / 升级引导（P4-3，已定）**：`runtime.onInstalled` 的 `install` / `update` 打开 `tabs/welcome.html`；同版本只自动打开一次，状态键 `web3_wallet_onboarding_launch_v1` 只存最近版本号，不接触账户或密钥。安装前台打开、升级后台打开，侧栏「安全与使用指南」常驻。商店隐私政策与支持链接必须在上架前替换为公开 HTTPS URL。
-- **批量地址查询（已拍板，P1 默认策略）**：统一入口 `POST /api/v1/balances/query`；每链 1–20 个地址；匿名 30 次/分钟/IP、登录 120 次/分钟/会话；结果缓存 15s、过期保留 5min；匿名可用，登录提高限额。当前限流 / 缓存为**进程内存**，多实例部署需替换为 Redis 等共享实现（见 P4-4 / P4-5）。
+- **运维指标（P4-4，已定）**：`SERVER_METRICS_TOKEN` 非空时开放 `GET /metrics`（Prometheus text，Bearer 鉴权；未配置 404）；只采集 HTTP 路由模板 / 方法 / 状态码、本地限流拒绝，以及 RPC / Etherscan / TronGrid / Esplora 的成功 / 失败 / 上游限流 / 最近成败时间戳 / Etherscan 冷却，不采集地址、URL、API Key 或请求体。指标为进程内存、单实例；多实例按 Prometheus `instance` 聚合，共享限流 / 缓存 / 会话仍需 Redis / DB。
+- **批量地址查询（已拍板，P1 默认策略）**：统一入口 `POST /api/v1/balances/query`；每链 1–20 个地址；匿名 30 次/分钟/IP、登录 120 次/分钟/会话；结果缓存 15s、过期保留 5min；匿名可用，登录提高限额。当前限流 / 缓存为**进程内存**，多实例部署需替换为 Redis 等共享实现（见待办）。
 - **ERC-4337（账户抽象）— 待办调研**：评估 **UserOperation** / **Bundler** / **Paymaster** / 智能合约账户与 **EntryPoint** 在本项目中的适用场景。  
   重点：**资金分散与归集**（尤其原生币无法像 ERC-20 那样单合约 `transferFrom` 多源拉取的前提下，AA 能否改善批量体验、代付 gas、与插件/服务端托管边界如何划分）。  
   结论落地前不绑定实现；调研后更新 §0 与本条。
@@ -592,9 +598,9 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 [apps/web](../../apps/web/)（Next App Router + viem + TanStack Query）：`/` 导航、[`/wallet`](../../apps/web/src/app/wallet/page.tsx) 钱包联调（EIP-6963 / EIP-1193）、[`/balances`](../../apps/web/src/app/balances/page.tsx) **多链余额查询入口**（链选择卡片），以及三张独立查询页 [`/balances/evm`](../../apps/web/src/app/balances/evm/page.tsx)、[`/balances/tron`](../../apps/web/src/app/balances/tron/page.tsx)、[`/balances/btc`](../../apps/web/src/app/balances/btc/page.tsx)（每页只提交当前链一个 group；地址去重 / 校验、取消、分页 / CSV 导出、空态 / 部分失败提示、原始 JSON 调试），[`/account`](../../apps/web/src/app/account/page.tsx) **登录与交易广播**（challenge → `personal_sign` → HttpOnly Cookie 会话 → `eth_signTransaction` → 服务端广播；CSRF token 仅存页面内存）。
 
-[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，浏览器 HttpOnly Cookie + CSRF、API 客户端 Bearer、CORS 白名单与 auth 限流、会话文件持久化）、**统一余额查询**（`POST /api/v1/balances/query`、`GET /api/v1/balances/status`，可选鉴权、进程内限流 / 缓存、按链 / 按地址部分失败）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、ERC-20 持仓与 stale 缓存、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）与 **BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`），见 §5.2。服务端 17 项测试覆盖统一查询成功 / 部分失败 / 上游不可达、鉴权、限流、ERC-20 stale 回退、Cookie / CSRF、Bearer 兼容、会话文件存储，以及 CORS / Origin 拒绝与安全响应头（`pnpm --filter @plugin/server test`）。
+[apps/server](../../apps/server/)（Fastify）：**Auth**（challenge / verify / me / logout，浏览器 HttpOnly Cookie + CSRF、API 客户端 Bearer、CORS 白名单与 auth 限流、会话文件持久化）、**统一余额查询**（`POST /api/v1/balances/query`、`GET /api/v1/balances/status`，可选鉴权、进程内限流 / 缓存、按链 / 按地址部分失败）、**EVM**（JSON-RPC 转发、原生余额 RPC / Etherscan、ERC-20 持仓与 stale 缓存、`balance-reader` 链上批量、`batch-sender` calldata 构造、`POST /api/v1/tx/broadcast`、`GET /api/v1/evm/status`）、**Tron**（TronGrid 账户余额单 / 批量、`GET /api/v1/tron/status`）、**BTC**（Esplora 地址余额单 / 批量、`GET /api/v1/btc/status`）与 **运维指标**（`GET /metrics`，`SERVER_METRICS_TOKEN` Bearer 鉴权，Prometheus text），见 §5.2。服务端 23 项测试覆盖统一查询成功 / 部分失败 / 上游不可达、鉴权、限流、ERC-20 stale 回退、Cookie / CSRF、Bearer 兼容、会话文件存储、Prometheus 指标鉴权 / HTTP / 上游限流，以及 CORS / Origin 拒绝与安全响应头（`pnpm --filter @plugin/server test`）。
 
-**Auth 与 tx 广播已具备 MVP，统一余额查询已完成 P1 产品化，P4-2 安全自检、P4-5 会话安全生产化与 P4-3 安装 / 升级引导及商店物料已完成**（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计 0 漏洞、HttpOnly Cookie + CSRF + 文件持久化、安全引导与上架文案）；业务 API、多实例共享限流 / 缓存、实际商店提交与 Web CSP 仍待迭代（见 [BACKLOG.md](./BACKLOG.md) P4-1 / P4-3 发布项 / P4-4 与 [security.md](./security.md)）。
+**Auth 与 tx 广播已具备 MVP，统一余额查询已完成 P1 产品化，P4-2 安全自检、P4-5 会话安全生产化、P4-3 安装 / 升级引导及商店物料、P4-4 运维指标已完成**（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计 0 漏洞、HttpOnly Cookie + CSRF + 文件持久化、安全引导与上架文案、Prometheus 指标）；业务 API、多实例共享限流 / 缓存 / 会话、实际商店提交与 Web CSP 仍待迭代（见 [BACKLOG.md](./BACKLOG.md) P4-1 / P4-3 发布项 / 后续与 [security.md](./security.md)）。
 
 ### 合约
 

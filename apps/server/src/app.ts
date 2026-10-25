@@ -15,10 +15,12 @@ import { assertSessionCookieConfig } from './auth/sessionCookie.js';
 import { initializeSessionStore } from './auth/sessionStore.js';
 import { getEtherscanApiKey, getServerRpcUrl } from './config/chain.js';
 import { isCorsOriginAllowed } from './config/cors.js';
+import { recordHttpRequest } from './observability/metrics.js';
 import authRoutes from './routes/auth.js';
 import balancesRoutes from './routes/balances.js';
 import btcGatewayRoutes from './routes/btcGateway.js';
 import evmGatewayRoutes from './routes/evmGateway.js';
+import metricsRoutes from './routes/metrics.js';
 import tronGatewayRoutes from './routes/tronGateway.js';
 import txRoutes from './routes/tx.js';
 import {
@@ -96,8 +98,14 @@ export async function buildApp(
 
   app.addHook('onResponse', (request, reply, done) => {
     const ms = Math.round(reply.elapsedTime);
-    // 使用路由模板而非原始 URL，避免把地址查询串写进访问日志。
-    const route = request.routeOptions.url ?? request.url.split('?')[0];
+    // 使用路由模板而非原始 URL，避免把地址查询串写进访问日志和指标标签。
+    const route = request.routeOptions.url ?? 'unmatched';
+    recordHttpRequest({
+      method: request.method,
+      route,
+      statusCode: reply.statusCode,
+      durationMs: reply.elapsedTime
+    });
     request.log.info(
       {
         reqId: request.id,
@@ -143,6 +151,7 @@ export async function buildApp(
   await app.register(balancesRoutes);
   await app.register(authRoutes);
   await app.register(txRoutes);
+  await app.register(metricsRoutes);
 
   app.get('/health', { schema: healthSchema }, async () => ({
     ok: true as const
