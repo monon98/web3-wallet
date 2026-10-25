@@ -3,6 +3,7 @@
 - **包名（pnpm filter）**：`web3-wallet`（与磁盘路径 `apps/extension` 不同，属历史命名）。
 - **本地类型**：`src/extension/types/*.ts`，聚合出口 **`src/extension/types/index.ts`**（`export type * from './…'`）；引用 **`~/types`**（见 `tsconfig.json` 的 `paths`）。**无依赖数值常量**（如批量上限）见 **`extension/constants/`**，引用 **`~/constants`**。
 - **栈**：Plasmo MV3、React 19、UnoCSS、viem、bip39（详见 [TECHNICAL-SOLUTION.md §4.1](./TECHNICAL-SOLUTION.md)）。
+- **`zod` 构建约束**：根 `pnpm.overrides` 的全局 `zod@3.25.76` 供 ESLint / `zod-validation-error` 使用；扩展经 scoped override **`"@plugin/shared>zod": "3.24.2"`** 打包 **3.24.2**。不要直接移除该 override 或把 `@plugin/shared` 升到 3.25+，否则 Parcel 会把 zod 的 `./v3/external.js` external 化，导致 popup / sidepanel 白屏；详见 [runbook · extension-mv3.md](../runbook/extension-mv3.md)。
 - **打开方式**：工具栏图标默认打开 **popup**（`popup.tsx` / `action.default_popup`）；侧栏（`sidepanel.tsx`）通过网页右键菜单「打开侧边栏」进入。Service Worker 启动时显式调用 `sidePanel.setPanelBehavior({ openPanelOnActionClick: false })` 重置旧版本可能持久化的 `true` 状态；不要再改为 `true`，否则会覆盖 popup 的点击行为。
 - **面板与 hooks 源文件命名（钱包）**：`src/extension/ui/wallet/**`、`src/extension/hooks/**` 下 `*.ts(x)` 使用 **camelCase**（小驼峰），如 `walletPanelRoot.tsx`、`useWalletPanel.ts`；聚合出口 `index.ts` 除外。由 `eslint.config.mjs` 中 `unicorn/filename-case`（`camelCase`）约束；Plasmo 入口（如 `sidepanel.tsx`、`popup.tsx`、`background.ts`）保持框架约定文件名。
 - **OpenCode 范围规则**：`apps/extension/AGENTS.md`（读取 `apps/extension/**` 内文件时自动加载）。

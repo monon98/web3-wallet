@@ -5,6 +5,7 @@
 ## 技术栈与目录约定
 
 - 栈：Plasmo（Chrome MV3）、React 19、TypeScript、UnoCSS、viem、bip39；脚本见 `apps/extension/package.json`。
+- **`zod` 版本（构建约束）**：根 `package.json` 保留全局 `zod@3.25.76` 供 ESLint 工具链使用，并用 scoped override **`"@plugin/shared>zod": "3.24.2"`** 让扩展实际打包使用 3.24.2；**不要**移除该 override 或把 `@plugin/shared` 升到 3.25+，否则 Plasmo/Parcel 会把 zod 的 `./v3/external.js` 当 external，导致 popup / sidepanel 白屏（见 `docs/runbook/extension-mv3.md`）。
 - 路径别名：见 `apps/extension/tsconfig.json`（`~lib/*` → `src/extension/utils/*`、`~/components/*` → `src/extension/ui/*`、`~/hooks/*`、`~/types`、`~/constants`、`~web3` 等）。
   **扩展内无业务语义的纯工具**在 **`src/extension/utils/common/**`**（按文件导入，如 `~lib/common/csvEscape`），抽取落点与 [.opencode/rules/agent-workflow.md](../../.opencode/rules/agent-workflow.md)「抽取落点约定」一致。
 **类型仅从 `~/types` 引用**（`src/extension/types/index.ts` 用 **`export type _ from './…'`** 聚合子文件）。

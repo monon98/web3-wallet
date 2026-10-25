@@ -67,6 +67,20 @@
   1. **`toHex` 等**：在 **`tabs/**`** 内写 **`import { … } from '~web3'`**，不要 **`from 'viem'`**（见 `src/extension/web3/evm/viem.ts`）。
   2. **批量派生 / 导出**：实现放在 **`~lib/generateAccountsTabHelpers`**（`extension/utils/`），标签页只做 UI 组合。
 
+## Plasmo / Parcel：弹窗或侧边栏白屏，控制台 `(0,o.z).enum is not a function`
+
+- **现象（2026-10）**：扩展工具栏弹窗或网页右键「打开侧边栏」后**白屏**；页面正文为空，DevTools 在 `popup.*.js` / `sidepanel.*.js` 报：
+  - `TypeError: (0, o.z).enum is not a function`
+  - 堆栈落在 `@plugin/shared` 的 `bridgeMethodSchema`（或同一 `zod` 模块的其他 schema）。
+- **根因**：`zod@3.25.76` 使用多层 ESM 入口（`index.js` → `./v3/external.js`）。Plasmo 0.90.5 内置的 Parcel 2.9.3 在扩展页 bundle 中把该**相对依赖**解析成 `false`（external），运行时 `z` 变成空对象，首个 `z.enum()` 即抛错。弹窗与侧边栏都引用 `@plugin/shared`，因此同时白屏；`tabs/*` 页面也会受影响。
+- **处理（已落地）**：
+  1. 根 `package.json` 继续用全局 `pnpm.overrides.zod = 3.25.76`，供 `eslint-plugin-react-hooks` / `zod-validation-error`（peer 要求 `^3.25.0`）使用；另加 **scoped override** `"@plugin/shared>zod": "3.24.2"`，让扩展实际打包的 `@plugin/shared` 使用 **`3.24.2`**（单文件 `lib/index.mjs`，Parcel 可正常打包）。
+  2. `packages/shared/package.json` 的 `zod` 依赖声明保持 **`3.24.2`**，与 scoped override 一致。
+  3. 执行 `pnpm install`；若 **`plasmo dev`** 正在运行，**结束并重启**（必要时删除 `apps/extension/.plasmo`），再重新构建 / 重载扩展。
+  4. 在弹窗、侧边栏和任一 `tabs/*` 页面的 DevTools 确认控制台无上述异常。
+- **升级注意**：不要把 `@plugin/shared>zod` 直接升到 `3.25+`。升级前先检查构建产物中是否出现 `"./v3/external.js":!1`（external 标记），或在浏览器实测 popup / sidepanel；必要时改用 Parcel 兼容的 CJS 入口，或等待 Plasmo/Parcel 修复。
+- **验证（2026-10）**：用本地 Chromium 分别加载 `build/chrome-mv3-prod` 与 `build/chrome-mv3-dev`，直接打开 `chrome-extension://<id>/popup.html`、`sidepanel.html`、`tabs/welcome.html`、`tabs/evmAccounts.html` 与 `tabs/generateAccounts.html`，页面正文均正常渲染，控制台无异常（dev 仅保留 Plasmo HMR 连接日志）。
+
 ## Plasmo / Parcel：已删除的 `tabs/*.ts` 仍报 `ENOENT … stat` / `open`
 
 - **现象（2026-04）**：`plasmo dev` / `plasmo build` 报错，例如：

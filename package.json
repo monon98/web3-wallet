@@ -34,6 +34,7 @@
     "overrides": {
       "@types/node": "22.10.2",
       "@parcel/watcher": "2.6.0",
+      "@plugin/shared>zod": "3.24.2",
       "axios": "1.20.0",
       "baseline-browser-mapping": "2.11.30",
       "brace-expansion@5": "5.0.12",
