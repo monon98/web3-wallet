@@ -66,6 +66,9 @@
 - **0.60** · 2026-10-25
   P4-4 监控与运维：新增 **`GET /metrics`**（Prometheus text format，参见 [metrics.ts](../../apps/server/src/observability/metrics.ts) / [prometheusText.ts](../../apps/server/src/observability/prometheusText.ts)）。仅在配置 `SERVER_METRICS_TOKEN` 时启用，要求 `Authorization: Bearer <token>`（常量时间比较）；未配置返回 404，避免默认暴露内部计数。指标覆盖 HTTP 请求 / 4xx / 5xx / 耗时（按路由模板）、本地 auth / 余额限流拒绝，以及 RPC / Etherscan / TronGrid / Esplora 的成功 / 失败 / 上游限流 / 最近成败时间戳 / Etherscan 冷却剩余时间；标签不含地址、URL、API Key 或请求体。HTTP 采集在 Fastify `onResponse`，上游封装覆盖 `rpcForward` / `etherscanV2` / `tronGrid` / `esplora` / `balanceReaderQuery`；新增 `metrics.test.ts`，服务端测试 23 项通过。指标为进程内存、单实例，多实例需按 Prometheus `instance` 聚合，共享限流 / 缓存 / 会话仍待 Redis / DB。§5.4、§8、§9、§10 与 [BACKLOG.md](./BACKLOG.md)、[server.md](./server.md)、[security.md](./security.md)、[.env.example](../../.env.example) 同步。
 
+- **0.61** · 2026-10-25
+  扩展工具栏入口修正：Service Worker 启动时显式调用 `sidePanel.setPanelBehavior({ openPanelOnActionClick: false })` 重置旧版本的 `true` 状态，恢复 `action.default_popup` 点击打开弹窗；侧栏继续通过网页右键菜单「打开侧边栏」进入。同步 [welcome.tsx](../../apps/extension/src/tabs/welcome.tsx) 引导文案与 [extension.md](./extension.md)。§4.1、§10 同步。
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -306,7 +309,7 @@ MV3：`background`（service worker）为消息枢纽；popup / side panel / tab
 
 **钱包 UI / 只读 RPC**：[walletUiState.ts](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)、[readonlyEvmRpc.ts](../../apps/extension/src/extension/utils/walletUi/readonlyEvmRpc.ts)、[customEvmChains.ts](../../apps/extension/src/extension/utils/walletUi/customEvmChains.ts)（自定义链存储 / URL 校验 / `eth_chainId` 探测）、[connectedSitesView.ts](../../apps/extension/src/extension/utils/walletUi/connectedSitesView.ts)（已连接站点搜索 / 分组 / CSV 导出）。
 
-**侧栏**：[walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站搜索 / 分组 / 导出与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / **网络与自定义 RPC** / 交易提交方式 / 站点授权策略 / **账户解锁与自动锁定 TTL**；概览含「安全与使用指南」入口）。
+**弹窗 / 侧栏**：[popup.tsx](../../apps/extension/src/popup.tsx) 与 [sidepanel.tsx](../../apps/extension/src/sidepanel.tsx) 共用 [walletPanel.tsx](../../apps/extension/src/extension/ui/wallet/walletPanel.tsx)（含 [connectedSitesSection.tsx](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) 已连接网站搜索 / 分组 / 导出与断开；全局设置 [globalSettingsView.tsx](../../apps/extension/src/extension/ui/wallet/views/globalSettingsView.tsx)：默认账户 / **网络与自定义 RPC** / 交易提交方式 / 站点授权策略 / **账户解锁与自动锁定 TTL**；概览含「安全与使用指南」入口）。工具栏图标默认打开 **popup**；侧栏通过网页右键菜单「打开侧边栏」进入，不以 `setPanelBehavior({ openPanelOnActionClick: true })` 覆盖工具栏点击。
 
 **审批与账户 Tab**：[siteConnect](../../apps/extension/src/tabs/siteConnect.tsx)、[signPersonal](../../apps/extension/src/tabs/signPersonal.tsx)、[signTypedData](../../apps/extension/src/tabs/signTypedData.tsx)、[signSendTransaction](../../apps/extension/src/tabs/signSendTransaction.tsx)；账户管理 [evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)、[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)（TVM 仅生成 / 导入 / 列表，不签名）；[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)（EVM / TVM / BTC 批量派生与导出）；[welcome](../../apps/extension/src/tabs/welcome.tsx)（首次安装 / 升级安全与使用指南）。
 
@@ -588,7 +591,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 **EVM DApp**：[`personal_sign`](../../apps/extension/src/tabs/signPersonal.tsx) / **`eth_sign`**（同路径）、[**EIP-712** `eth_signTypedData*`](../../apps/extension/src/tabs/signTypedData.tsx)、[**`eth_sendTransaction` / `eth_signTransaction`**](../../apps/extension/src/tabs/signSendTransaction.tsx)、**`eth_sendRawTransaction`**（无口令，当前链 RPC 广播）、连接 [`siteConnect`](../../apps/extension/src/tabs/siteConnect.tsx)；全局 **`evmTxSubmitMode`**（[`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)）。
 
-侧栏 **已连接网站** 搜索 / 分组 / CSV 导出与断开、**DApp 全局设置**（默认账户、**网络与自定义 RPC**、交易提交方式、站点授权策略、**账户解锁 / 自动锁定**）；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）、**首次安装 / 升级引导**（[welcome](../../apps/extension/src/tabs/welcome.tsx)，备份 / 签名 / 隐私 / 权限说明）。
+工具栏 **popup**（默认）与侧栏共用钱包面板：**已连接网站** 搜索 / 分组 / CSV 导出与断开、**DApp 全局设置**（默认账户、**网络与自定义 RPC**、交易提交方式、站点授权策略、**账户解锁 / 自动锁定**）；侧栏通过网页右键菜单「打开侧边栏」进入；**EVM 账户管理**（[evmAccounts](../../apps/extension/src/tabs/evmAccounts.tsx)，助记词 / 私钥导入）、**TVM(Tron) 账户管理**（[tvmAccounts](../../apps/extension/src/tabs/tvmAccounts.tsx)，生成 / 私钥导入；不接入签名）、**多链地址生成器**（[generateAccounts](../../apps/extension/src/tabs/generateAccounts.tsx)，EVM/TVM/BTC，CSV / JSON 导出，不落盘）、**首次安装 / 升级引导**（[welcome](../../apps/extension/src/tabs/welcome.tsx)，备份 / 签名 / 隐私 / 权限说明）。
 
 细节见 [extension.md](./extension.md)；**开发态 `extLog*` 索引**见 **§4.1「开发态可观测性」**。
 

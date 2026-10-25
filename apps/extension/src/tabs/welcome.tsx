@@ -150,7 +150,7 @@ export default function WelcomePage() {
             <li className='rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-1)] p-3'>
               <span className='font-semibold text-[var(--ui-fg)]'>3. 连接 DApp</span>
               <p className='mt-1 text-xs leading-relaxed text-[var(--ui-muted-fg)]'>
-                在任意网页点击浏览器工具栏中的钱包图标打开侧栏；连接请求需选择账户并确认，签名与交易仍需逐笔批准。
+                在任意网页点击浏览器工具栏中的钱包图标打开弹窗；需要更大面板时，可在网页右键菜单选择「打开侧边栏」。连接请求需选择账户并确认，签名与交易仍需逐笔批准。
               </p>
             </li>
           </ol>
@@ -204,7 +204,7 @@ export default function WelcomePage() {
         </PanelSection>
 
         <footer className='pb-4 text-center text-[11px] leading-relaxed text-[var(--ui-muted-fg)]'>
-          <p>在任意网页点击浏览器工具栏中的钱包图标可打开侧栏。</p>
+          <p>点击浏览器工具栏中的钱包图标打开弹窗；网页右键菜单可打开完整侧边栏。</p>
           <p className='mt-1'>安全与使用指南 · v{context.version}</p>
         </footer>
       </main>

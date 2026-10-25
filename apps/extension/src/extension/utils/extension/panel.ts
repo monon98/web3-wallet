@@ -7,11 +7,9 @@ export const tools = {
   }
 };
 
-/**
- * 确保点击工具栏图标时打开侧栏（与 `background` 内 `setPanelBehavior` 语义一致，可重复调用）。
+/*
+ * 注意：不要在这里调用 `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`。
+ * 它会把工具栏图标点击改为打开侧栏，并跳过 `action.default_popup`，导致弹窗模式无法打开。
+ * 当前由 `background/serviceWorker.ts` 在安装 / 启动时显式设为 `false` 重置旧状态；
+ * 侧栏入口统一走右键菜单「打开侧边栏」。
  */
-export const switchSidePanel = (_tabId: number) => {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {
-    void chrome.runtime.lastError;
-  });
-};
