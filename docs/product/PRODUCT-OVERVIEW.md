@@ -55,7 +55,7 @@
 
 ### A2. 安全与签名体验
 
-- **连接网站**；**已连接站点管理**；**签名与交易确认**（可读摘要）；**消息 / 结构化数据签名**同理。
+- **连接网站**；**已连接站点管理**（搜索、按暴露地址 / 授权范围分组、公开元数据 CSV 导出与撤销）；**签名与交易确认**（可读摘要）；**消息 / 结构化数据签名**同理。
 
 ### A3. 与 DApp / 自有 Web 的协同
 
@@ -108,11 +108,11 @@
 
 ---
 
-## D. 已实现基线 · 总览（截至 2026-10-23）
+## D. 已实现基线 · 总览（截至 2026-10-25）
 
 | 子项目 | 摘要                                                                                                                                                                                                                                                                                                                                                                                                        | 细则与缺口                             |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 扩展   | background、双内容脚本 EIP-1193/6963、bridge、vault（EVM+TVM）、侧栏（概览与「DApp 全局设置」）；连接、`personal_sign`/`eth_sign`、EIP-712、交易四类审批 Tab + EVM/TVM 账户管理 + 多链地址生成器；**内置链 + 自定义 RPC 链切换**（侧栏增删改、`eth_chainId` 校验、DApp 不自动添加未知链）、只读 RPC、`eth_sendRawTransaction`、交易与 `evmTxSubmitMode`；**会话级解锁 / 自动锁定**（background 内存、默认空闲 15 分钟、可配置 1–120 分钟、手动全部锁定；见 engineering/extension.md 表） | [prd-extension.md](./prd-extension.md) |
+| 扩展   | background、双内容脚本 EIP-1193/6963、bridge、vault（EVM+TVM）、侧栏（概览与「DApp 全局设置」）；连接、`personal_sign`/`eth_sign`、EIP-712、交易四类审批 Tab + EVM/TVM 账户管理 + 多链地址生成器；**内置链 + 自定义 RPC 链切换**（侧栏增删改、`eth_chainId` 校验、DApp 不自动添加未知链）、只读 RPC、`eth_sendRawTransaction`、交易与 `evmTxSubmitMode`；**会话级解锁 / 自动锁定**（background 内存、默认空闲 15 分钟、可配置 1–120 分钟、手动全部锁定）；**已连接站点搜索 / 分组 / 公开元数据 CSV 导出**（见 engineering/extension.md 表） | [prd-extension.md](./prd-extension.md) |
 | Web    | Next；`/wallet` 联调扩展（EIP-6963 + EIP-1193）、`/account` 登录与交易广播（challenge → `personal_sign` → HttpOnly Cookie 会话 → `eth_signTransaction` → 服务端广播）、`/balances` **多链余额查询入口** + `/balances/evm`、`/balances/tron`、`/balances/btc` **三链独立查询页**（每页只提交当前链；去重 / 校验、取消、分页、CSV、空态 / 错误态、原始 JSON 调试）                                            | [prd-web.md](./prd-web.md)             |
 | 服务端 | Auth（challenge / verify / me / logout，浏览器 HttpOnly Cookie + CSRF、API 客户端 Bearer、会话文件持久化）、**统一余额查询**（`/api/v1/balances/query`、`/status`：限流、缓存、按链部分失败）、EVM JSON-RPC 转发 + tx 广播、Etherscan V2 / ERC-20 stale 缓存、`balance-reader` 链上批量、`batch-sender` 构造、Tron 账户余额（TronGrid）、BTC 地址余额（Esplora）                                            | [prd-server.md](./prd-server.md)       |
 | shared | Bridge、内置链清单、explorer / balance-reader / batch-sender / balances / tx / auth 契约（含请求 / 响应 schema）                                                                                                                                                                                                                                                                                            | [prd-shared.md](./prd-shared.md)       |

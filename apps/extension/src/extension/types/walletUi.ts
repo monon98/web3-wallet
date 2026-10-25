@@ -20,6 +20,19 @@ export type SiteAuthSession = {
   address: `0x${string}`;
 };
 
+/** 已连接站点列表的分组方式：不分组 | 按暴露地址 | 按授权范围 */
+export type ConnectedSitesGroupBy = 'none' | 'address' | 'scope';
+
+/** 站点会话的授权范围（由 `tabId` / `expiresAt` 推导） */
+export type ConnectedSiteScopeKind = 'persistent' | 'timed' | 'tab';
+
+/** 已连接站点分组视图：`label` 为 `null` 表示不显示分组标题 */
+export type ConnectedSitesGroup = {
+  key: string;
+  label: string | null;
+  sessions: readonly SiteAuthSession[];
+};
+
 /** DApp `eth_sendTransaction` 批准后的提交方式（全局，存于钱包 UI 状态） */
 export type EvmTxSubmitMode = 'signOnly' | 'signAndBroadcast';
 

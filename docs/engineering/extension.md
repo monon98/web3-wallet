@@ -92,6 +92,14 @@ Plasmo 文档中 **`url:`** 用于拿到扩展内某**资源**的 URL（文档�
 - **DApp 边界**：`wallet_switchEthereumChain` 只能切到已配置的内置 / 自定义链；`wallet_addEthereumChain` 不自动落库，未知链返回 **4902**。这样恶意页面不能把用户静默切到未确认的 RPC。
 - **信任边界**：`eth_chainId` 校验只能发现配置不一致，不能证明节点诚实；自定义 RPC 仍可看到公开地址、查询与已签名交易广播，属用户显式信任决策。
 
+### 已连接站点管理（P2-6）
+
+- **入口**：侧栏「DApp 全局设置 → 已连接网站」（[`connectedSitesSection.tsx`](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx)），沿用 [`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts) 的 `siteAuthSessions`，支持单站 / 全部断开。
+- **搜索**：不区分大小写，匹配 origin 与暴露地址；空格分隔的多个词须全部命中（如 `uniswap 0xabc`）。
+- **分组**：不分组、按暴露地址、按授权范围（持久 / 定时 / 仅当前标签）；按地址分组时站点数多的组优先。
+- **导出**：CSV 仅导出**当前筛选结果**，字段为站点 origin、公开 EVM 地址、授权范围、标签页 ID 与 ISO 过期时间；带 UTF-8 BOM，并对公式起始字符做转义。导出不包含私钥、助记词、口令、RPC URL 或其他钱包配置。
+- **代码落点**：[`connectedSitesView.ts`](../../apps/extension/src/extension/utils/walletUi/connectedSitesView.ts) 负责筛选 / 分组 / 范围文案 / CSV 生成，UI 只负责状态与展示。
+
 ### 账户解锁与自动锁定（P2-2）
 
 - **缓存位置**：[`unlockSession.ts`](../../apps/extension/src/extension/utils/vault/unlockSession.ts) 仅在 **background 内存**保存解密后的 viem 账户，按签名地址隔离；不写 `chrome.storage` / `chrome.storage.session`，不暴露给 content script、网页或侧栏。
@@ -112,7 +120,7 @@ Plasmo 文档中 **`url:`** 用于拿到扩展内某**资源**的 URL（文档�
 - **Background 枢纽**：[ `background.ts` ](../../apps/extension/src/background.ts)
 - **桥接处理**：[ `handleBridgeMessage.ts` ](../../apps/extension/src/extension/utils/bridge/handleBridgeMessage.ts)；子模块与维护优先级见 [bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)
 - **待连接弹窗**：[`openSiteConnectPopup.ts`](../../apps/extension/src/extension/utils/bridge/siteConnect/openSiteConnectPopup.ts)、[`pendingSiteConnect.ts`](../../apps/extension/src/extension/utils/bridge/siteConnect/pendingSiteConnect.ts)、[`resolvePendingSiteConnect.ts`](../../apps/extension/src/extension/utils/bridge/siteConnect/resolvePendingSiteConnect.ts)
-- **侧栏站点会话**：[`connectedSitesSection.tsx`](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) + [`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)（`siteAuthSessions`、`WALLET_UI_STATE_STORAGE_KEY`；无内置演示地址，须导入本地账户后方可连接 DApp）
+- **侧栏站点会话**：[`connectedSitesSection.tsx`](../../apps/extension/src/extension/ui/wallet/sections/connectedSitesSection.tsx) + [`connectedSitesView.ts`](../../apps/extension/src/extension/utils/walletUi/connectedSitesView.ts) + [`walletUiState`](../../apps/extension/src/extension/utils/walletUi/walletUiState.ts)（`siteAuthSessions`、`WALLET_UI_STATE_STORAGE_KEY`；搜索 / 分组 / CSV 导出；无内置演示地址，须导入本地账户后方可连接 DApp）
 - **待签名弹窗**：[`openPersonalSignPopup.ts`](../../apps/extension/src/extension/utils/bridge/personalSign/openPersonalSignPopup.ts)、[`pendingPersonalSign.ts`](../../apps/extension/src/extension/utils/bridge/personalSign/pendingPersonalSign.ts)、[`resolvePendingPersonalSign.ts`](../../apps/extension/src/extension/utils/bridge/personalSign/resolvePendingPersonalSign.ts)
 - **EIP-712 弹窗**：[`openTypedDataSignPopup.ts`](../../apps/extension/src/extension/utils/bridge/typedData/openTypedDataSignPopup.ts)、[`pendingTypedDataSign.ts`](../../apps/extension/src/extension/utils/bridge/typedData/pendingTypedDataSign.ts)、[`resolvePendingTypedDataSign.ts`](../../apps/extension/src/extension/utils/bridge/typedData/resolvePendingTypedDataSign.ts)
 - **交易弹窗**（`eth_sendTransaction` / `eth_signTransaction`）：[`openSendTransactionPopup.ts`](../../apps/extension/src/extension/utils/bridge/transaction/openSendTransactionPopup.ts)（`openSendTransactionApprovalPopup`）、[`pendingSendTransaction.ts`](../../apps/extension/src/extension/utils/bridge/transaction/pendingSendTransaction.ts)、[`resolvePendingSendTransaction.ts`](../../apps/extension/src/extension/utils/bridge/transaction/resolvePendingSendTransaction.ts)、[`signSendTransaction` 页](../../apps/extension/src/tabs/signSendTransaction.tsx)

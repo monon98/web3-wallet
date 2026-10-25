@@ -6,13 +6,13 @@
 >
 > **事实来源**：[TECHNICAL-SOLUTION.md](./TECHNICAL-SOLUTION.md) §5 / §8 / §9 / §10、各 `docs/product/prd-*.md`。
 >
-> **最后更新**：2026-10-23
+> **最后更新**：2026-10-25
 
 ## 执行顺序
 
 `P0（已完成）→ P1（已完成）→ P2 → P3 → P4`
 
-P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2-2 已完成会话级解锁 / 自动锁定；P2-3 已完成自定义 RPC 链；P2 / P3 其余项仍依赖产品范围与合约主线决策。
+P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2-2 已完成会话级解锁 / 自动锁定；P2-3 已完成自定义 RPC 链；P2-6 已完成已连接站点搜索 / 分组 / 导出；P2 / P3 其余项仍依赖产品范围与合约主线决策。
 
 ---
 
@@ -58,12 +58,14 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 | P2-3 | 自定义 RPC 链                                      | [x]  | 可添加 / 编辑 / 删除链；只读 RPC 与切链校验；不破坏内置链                |
 | P2-4 | Tron DApp：`tronweb` + TronLink 风格注入与签名     | [ ]  | 注入目标与 TIP-1193 / TronLink 约定一致；账户请求、消息 / 交易签名可联调 |
 | P2-5 | BTC 钱包与签名                                     | [ ]  | 当前仅有地址派生；补齐持有、签名与 DApp 交互边界                         |
-| P2-6 | 已连接站点搜索 / 分组 / 导出                       | [ ]  | 站点多时可用；不泄露密钥材料                                             |
+| P2-6 | 已连接站点搜索 / 分组 / 导出                       | [x]  | 站点多时可用；不泄露密钥材料                                             |
 | P2-7 | 生产级 DApp 全量验收                               | [ ]  | 主流 DApp 连接、签名、交易、切链路径回归                                 |
 
 > **P2-2 执行记录（2026-10-23）**：解密后的 viem 账户仅缓存在 background 内存（`vault/unlockSession.ts`），按签名地址隔离；空闲 TTL 默认 **15 分钟**，可在侧栏「DApp 全局设置 → 账户解锁」调整为 **1–120 分钟**，成功签名 / 广播后重新计时；支持「立即锁定全部」。EVM 的 `personal_sign` / `eth_sign`、EIP-712、`eth_sendTransaction` / `eth_signTransaction` 在解锁态下免重复输入口令，仍保留每个审批弹窗的确认；锁定、TTL 过期、账户已从 vault 删除或 Service Worker 休眠后，下一次签名必须重新输入口令。解锁态不写 `chrome.storage`，不进入 content script / 网页。验证：扩展 `typecheck` / `lint` / `plasmo build`；浏览器手工回归待 P4-1。
 >
 > **P2-3 执行记录（2026-10-23）**：侧栏「DApp 全局设置 → 网络与自定义 RPC」支持切换内置链、新增 / 编辑 / 删除最多 **20** 个本地自定义 EVM 网络（存储键 `web3_wallet_custom_evm_chains_v1`）。保存时校验 Chain ID 不与内置链 / 已有自定义链重复；新增网络或修改 RPC URL 时调用 `eth_chainId` 确认链一致；RPC URL 仅允许 HTTPS 或 `localhost` / `127.0.0.1` 的 HTTP，拒绝内嵌凭据与 fragment。自定义链进入 `eth_getBalance` / `eth_blockNumber` / `eth_sendRawTransaction` 与 `eth_sendTransaction` / `eth_signTransaction` 的当前链路径；`wallet_switchEthereumChain` 可切换到已配置自定义链，`wallet_addEthereumChain` **不自动添加**未知链（DApp 传入的 `rpcUrls` 不作为信任来源，返回 4902）。RPC URL 不写日志，侧栏仅显示 host。验证：扩展 `typecheck` / `lint` / `plasmo build`；浏览器手工回归待 P4-1。
+>
+> **P2-6 执行记录（2026-10-25）**：侧栏「DApp 全局设置 → 已连接网站」新增搜索、分组与 CSV 导出。搜索不区分大小写，支持 origin / 公开地址及空格分隔组合词；分组可选不分组、按暴露地址、按授权范围（持久 / 定时 / 仅当前标签）。导出仅针对当前筛选结果，字段限定为站点 origin、公开 EVM 地址、授权范围、标签页 ID 与 ISO 过期时间，并做 CSV 公式注入防护与 UTF-8 BOM；不读取或输出私钥、助记词、口令、RPC URL 等其他配置。视图逻辑集中在 `connectedSitesView.ts`，侧栏只负责交互与展示。验证：扩展 `typecheck` / `lint` / `plasmo build`；临时 Node 脚本覆盖筛选、分组、范围文案与 CSV 内容；浏览器手工回归待 P4-1。
 
 ---
 
