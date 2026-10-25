@@ -81,6 +81,12 @@ export function WalletHomeOverview({
           hint='新标签页工具：可选路径模板、私钥列与 CSV/JSON 导出，不落盘'
           onClick={() => openTab('tabs/generateAccounts.html')}
         />
+        <OverviewNavRow
+          title='安全与使用指南'
+          summary='备份、签名审批、隐私与权限说明'
+          hint='首次安装 / 升级会打开；也可随时回看'
+          onClick={() => openTab('tabs/welcome.html')}
+        />
       </nav>
     </div>
   );

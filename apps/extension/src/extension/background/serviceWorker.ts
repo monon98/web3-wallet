@@ -30,6 +30,7 @@ import {
   approvePendingTypedDataSignAndNotify,
   rejectPendingTypedDataSignAndNotify
 } from '~lib/bridge/typedData/resolvePendingTypedDataSign';
+import { maybeOpenOnboardingTab } from '~lib/extension/onboarding';
 import { extLogDebug, extLogInfo, extLogWarn } from '~lib/extensionLog';
 import { getUnlockStatus, getUnlockSummary, lockAllUnlockedAccounts } from '~lib/vault/unlockSession';
 import { ensureWalletGlobalSettingsInitialized } from '~lib/walletUi/globalSettings';
@@ -38,7 +39,7 @@ import { revokeSiteAuthSessionsForTab } from '~lib/walletUi/walletUiState';
 /**
  * Chrome MV3 **Service Worker** 实现（由根目录 `src/background.ts` 侧载，以满足 Plasmo 入口路径约定）。
  *
- * **职责**：侧栏与右键菜单；安装/启动时初始化钱包 UI 状态与站点授权策略；接收两类 `runtime` 消息——
+ * **职责**：侧栏与右键菜单；安装/升级时打开安全与使用指南；启动时初始化钱包 UI 状态与站点授权策略；接收两类 `runtime` 消息——
  * （1）连接/签名弹窗的批准或拒绝；（2）隔离内容脚本转发的 {@link BridgeRequest}（网页 DApp → `contents/allUrls` → 本处 → `handleBridgeRequest`）。
  *
  * **生命周期**：标签页关闭或**整页刷新**（非 iframe）时按 tab 撤销站点会话，避免残留授权。
@@ -91,11 +92,22 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   void revokeSiteAuthSessionsForTab(tabId);
 });
 
-chrome.runtime.onInstalled.addListener(() => {
-  extLogInfo('sw_lifecycle', { event: 'installed' });
+chrome.runtime.onInstalled.addListener((details) => {
+  extLogInfo('sw_lifecycle', { event: 'installed', reason: details.reason });
   void ensureWalletGlobalSettingsInitialized();
   ensureSidePanelOpensOnActionClick();
   ensureContextMenu();
+
+  // 首次安装 / 版本变化时打开安全与使用指南；同版本重载不重复弹页。
+  void maybeOpenOnboardingTab(details)
+    .then((opened) => {
+      if (opened) {
+        extLogInfo('sw_lifecycle', { event: 'onboarding_opened', reason: details.reason });
+      }
+    })
+    .catch(() => {
+      extLogWarn('sw_lifecycle', { event: 'onboarding_open_failed', reason: details.reason });
+    });
 });
 
 chrome.runtime.onStartup.addListener(() => {

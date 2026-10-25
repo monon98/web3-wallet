@@ -1,6 +1,6 @@
-# 安全自检（P4-2 / P4-5 / P2-2 / P2-3 / P2-6）
+# 安全自检（P4-2 / P4-5 / P2-2 / P2-3 / P2-6 / P4-3）
 
-> **状态**：2026-10-22 完成首轮自检与 P4-5 会话改造；2026-10-23 补充 P2-2 扩展解锁态与 P2-3 自定义 RPC 链；2026-10-25 补充 P2-6 已连接站点导出边界。覆盖当前已实现的扩展 / Web / 服务端边界。
+> **状态**：2026-10-22 完成首轮自检与 P4-5 会话改造；2026-10-23 补充 P2-2 扩展解锁态与 P2-3 自定义 RPC 链；2026-10-25 补充 P2-6 已连接站点导出边界与 P4-3 安装 / 升级引导、商店隐私文案。覆盖当前已实现的扩展 / Web / 服务端边界。
 >
 > **适用范围**：`apps/extension`、`apps/web`、`apps/server` 与根依赖锁定。接口语义以 [TECHNICAL-SOLUTION.md](./TECHNICAL-SOLUTION.md) §5 为准。
 
@@ -16,22 +16,23 @@
 
 ## 2. 检查清单
 
-| 项目             | 结论             | 实现 / 证据                                                                                                                                                                                                                                     |
-| ---------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 密钥边界         | 通过             | 扩展 vault 负责本地加密存储与解密签名；Web / 服务端路由不出现私钥 / 助记词字段；桥接响应不包含明文密钥材料                                                                                                                                      |
-| 扩展解锁态       | 通过             | P2-2：解密后的 viem 账户仅存 background 内存，按签名地址隔离；默认空闲 15 分钟、可配 1–120 分钟，支持手动全部锁定；不写 `chrome.storage`；每次签名仍须审批弹窗确认；Service Worker 休眠 / 浏览器重启即失效                                      |
-| 自定义 RPC 链    | 通过             | P2-3：用户显式添加，最多 20 条；Chain ID 不可与内置链重复；RPC URL 仅 HTTPS 或 localhost / 127.0.0.1 HTTP；新增 / 修改 RPC 时校验 `eth_chainId`；DApp 的 `wallet_addEthereumChain` 不自动落库，未知链返回 4902；RPC URL 不写日志             |
-| 站点列表导出     | 通过             | P2-6：搜索 / 分组只读 `siteAuthSessions`；CSV 仅含 origin、公开 EVM 地址、授权范围、标签页 ID 与 ISO 过期时间，带 UTF-8 BOM 并防公式注入；不导出私钥、助记词、口令、RPC URL 或其他钱包配置                                                  |
-| 日志脱敏         | 通过             | Pino `redact` 覆盖 authorization、cookie、`x-csrf-token`、token / csrfToken、privateKey、mnemonic、signature、raw / signed transaction 与 `*.url`；access log 只记录**路由模板**，不记录地址查询串                                              |
-| CORS             | 通过             | `SERVER_CORS_ORIGINS` 白名单；开发默认仅 `http://localhost:3000` / `127.0.0.1:3000`；生产未配置时不放行跨域；auth challenge / verify 对非白名单 `Origin` 直接 403；测试覆盖                                                                     |
-| CSRF             | 通过             | 浏览器会话改为 HttpOnly Cookie；写接口（tx / logout）要求 `x-csrf-token` = HMAC(SESSION_SECRET, sessionToken)，常量时间比较；`SameSite` 可配（默认 Lax），跨站需 None + Secure；CORS 显式白名单且 `credentials=true`                            |
-| 会话安全         | 通过             | challenge 一次性 5 分钟；session token 为 32 字节随机值，服务端只存 SHA-256 摘要，24 小时过期；Cookie `HttpOnly` + `SameSite` + 生产 `Secure`；会话可文件持久化，重启不丢；token 不进 Web 存储                                                  |
-| 限流             | 通过（单实例）   | 余额查询匿名 30 / 登录 120 次/分钟；auth challenge / verify 默认 20 次/分钟/IP；固定 60s 窗口、桶数量上限；多实例需 Redis（P4-4）                                                                                                               |
-| 安全响应头       | 通过             | 所有 API 响应补 `x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer`、`permissions-policy`；auth 响应 `cache-control: no-store`                                                                           |
-| 代理与客户端 IP  | 通过（默认安全） | 默认 `trustProxy=false`；仅在 `SERVER_TRUST_PROXY=1` 且位于可信反向代理后，才使用 `X-Forwarded-For` 作为限流 IP                                                                                                                                 |
-| 请求 ID          | 通过             | 客户端 `x-request-id` 仅接受 `[A-Za-z0-9._-]{1,64}`，否则生成 UUID，避免日志注入 / 超长字段                                                                                                                                                     |
-| 依赖审计         | 通过（运行时）   | `pnpm audit --prod` **0 漏洞**；Next **16.4.2**、Fastify **5.12.7**、`@fastify/*` 已升级；`axios` / `fast-uri` / `ws` / `follow-redirects` / `sass` / `@parcel/watcher` 等通过 `pnpm.overrides` 锁定到修复版本；Plasmo 归入扩展 devDependencies |
-| 依赖审计（全量） | 有残余           | `pnpm audit` 仍会报告 Plasmo / 构建链的 devDependency 告警（`brace-expansion`、`vite`、`js-yaml`、`sharp` 等），不进入扩展运行时产物；见 §4                                                                                                     |
+| 项目             | 结论             | 实现 / 证据                                                                                                                                                                                                                                                            |
+| ---------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 密钥边界         | 通过             | 扩展 vault 负责本地加密存储与解密签名；Web / 服务端路由不出现私钥 / 助记词字段；桥接响应不包含明文密钥材料                                                                                                                                                             |
+| 扩展解锁态       | 通过             | P2-2：解密后的 viem 账户仅存 background 内存，按签名地址隔离；默认空闲 15 分钟、可配 1–120 分钟，支持手动全部锁定；不写 `chrome.storage`；每次签名仍须审批弹窗确认；Service Worker 休眠 / 浏览器重启即失效                                                             |
+| 自定义 RPC 链    | 通过             | P2-3：用户显式添加，最多 20 条；Chain ID 不可与内置链重复；RPC URL 仅 HTTPS 或 localhost / 127.0.0.1 HTTP；新增 / 修改 RPC 时校验 `eth_chainId`；DApp 的 `wallet_addEthereumChain` 不自动落库，未知链返回 4902；RPC URL 不写日志                                       |
+| 站点列表导出     | 通过             | P2-6：搜索 / 分组只读 `siteAuthSessions`；CSV 仅含 origin、公开 EVM 地址、授权范围、标签页 ID 与 ISO 过期时间，带 UTF-8 BOM 并防公式注入；不导出私钥、助记词、口令、RPC URL 或其他钱包配置                                                                             |
+| 发布引导 / 隐私  | 通过（仓库侧）   | P4-3：安装 / 升级自动打开安全与使用指南，同版本去重；`web3_wallet_onboarding_launch_v1` 只存版本号，页面不读取账户、不要求输入密钥材料；[隐私政策](../product/extension-privacy-policy.md)披露本地存储、RPC / DApp 通信、权限与删除方式。实际商店提交待公开 URL 与截图 |
+| 日志脱敏         | 通过             | Pino `redact` 覆盖 authorization、cookie、`x-csrf-token`、token / csrfToken、privateKey、mnemonic、signature、raw / signed transaction 与 `*.url`；access log 只记录**路由模板**，不记录地址查询串                                                                     |
+| CORS             | 通过             | `SERVER_CORS_ORIGINS` 白名单；开发默认仅 `http://localhost:3000` / `127.0.0.1:3000`；生产未配置时不放行跨域；auth challenge / verify 对非白名单 `Origin` 直接 403；测试覆盖                                                                                            |
+| CSRF             | 通过             | 浏览器会话改为 HttpOnly Cookie；写接口（tx / logout）要求 `x-csrf-token` = HMAC(SESSION_SECRET, sessionToken)，常量时间比较；`SameSite` 可配（默认 Lax），跨站需 None + Secure；CORS 显式白名单且 `credentials=true`                                                   |
+| 会话安全         | 通过             | challenge 一次性 5 分钟；session token 为 32 字节随机值，服务端只存 SHA-256 摘要，24 小时过期；Cookie `HttpOnly` + `SameSite` + 生产 `Secure`；会话可文件持久化，重启不丢；token 不进 Web 存储                                                                         |
+| 限流             | 通过（单实例）   | 余额查询匿名 30 / 登录 120 次/分钟；auth challenge / verify 默认 20 次/分钟/IP；固定 60s 窗口、桶数量上限；多实例需 Redis（P4-4）                                                                                                                                      |
+| 安全响应头       | 通过             | 所有 API 响应补 `x-content-type-options: nosniff`、`x-frame-options: DENY`、`referrer-policy: no-referrer`、`permissions-policy`；auth 响应 `cache-control: no-store`                                                                                                  |
+| 代理与客户端 IP  | 通过（默认安全） | 默认 `trustProxy=false`；仅在 `SERVER_TRUST_PROXY=1` 且位于可信反向代理后，才使用 `X-Forwarded-For` 作为限流 IP                                                                                                                                                        |
+| 请求 ID          | 通过             | 客户端 `x-request-id` 仅接受 `[A-Za-z0-9._-]{1,64}`，否则生成 UUID，避免日志注入 / 超长字段                                                                                                                                                                            |
+| 依赖审计         | 通过（运行时）   | `pnpm audit --prod` **0 漏洞**；Next **16.4.2**、Fastify **5.12.7**、`@fastify/*` 已升级；`axios` / `fast-uri` / `ws` / `follow-redirects` / `sass` / `@parcel/watcher` 等通过 `pnpm.overrides` 锁定到修复版本；Plasmo 归入扩展 devDependencies                        |
+| 依赖审计（全量） | 有残余           | `pnpm audit` 仍会报告 Plasmo / 构建链的 devDependency 告警（`brace-expansion`、`vite`、`js-yaml`、`sharp` 等），不进入扩展运行时产物；见 §4                                                                                                                            |
 
 ## 3. 关键配置
 
@@ -56,6 +57,8 @@
 - **解锁期间同扩展页面可发起签名**：解锁态只替代“重复输入口令”，不会跳过审批弹窗；但若扩展页面被 XSS 控制，攻击者可代用户点击确认。扩展页 CSP / 来源校验仍属于后续加固范围。
 - **自定义 RPC 是用户信任决策**：P2-3 的 `eth_chainId` 校验只能发现 RPC 配置不一致，不能证明节点诚实；错误或恶意节点可能返回错误数据、拒绝服务或记录公开地址 / 广播交易。RPC URL 可能含 API key，保存在本机 `chrome.storage.local`，列表仅展示 host，日志不记录 URL。
 - **站点导出是用户主动数据外带**：P2-6 的 CSV 只含站点来源、公开 EVM 地址、授权范围、标签页 ID 与过期时间，不含密钥材料或 RPC 配置；文件下载后脱离扩展保护，用户应自行保管。
+- **商店提交仍是外部动作**：P4-3 已在仓库内准备引导页、商品文案、隐私政策草稿与截图脚本；公开隐私政策 URL、支持链接、商店后台主体信息与截图仍须由发布者在提交前补齐，代码本身不能代替商店审核。
+- **主机权限仍较宽**：扩展为支持用户配置任意 HTTPS RPC，`host_permissions` 仍含 `https://*/*`；内容脚本注入范围由 `CONTENT_SCRIPT_MATCH_PATTERNS` 限制在本地白名单。商店审核可能要求解释，后续可评估按自定义链申请 optional host permissions。
 - **会话持久化仍是单实例文件**：`SERVER_SESSION_STORE=file` 解决重启失效，但多实例不能共用本地文件；横向扩展前需接 Redis / DB（P4-4）。
 - **CORS 是浏览器读取边界**：非浏览器客户端不受 CORS 限制；敏感写接口仍依赖会话 + CSRF + 签名校验，不以 CORS 代替鉴权。
 - **全量依赖审计残余**：`pnpm audit` 的高危项集中在 Plasmo / Parcel / 构建工具链；`pnpm audit --prod` 已清零。构建机仍应视为受控环境，升级 Plasmo 时复跑全量审计。

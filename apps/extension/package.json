@@ -1,8 +1,8 @@
 {
   "name": "web3-wallet",
-  "displayName": "Web3 wallet",
+  "displayName": "Web3 Wallet（本地自托管）",
   "version": "0.0.1",
-  "description": "A basic Plasmo extension.",
+  "description": "本地自托管 EVM 钱包：账户加密保存，连接 DApp 时逐笔确认签名与交易。",
   "author": "monon98",
   "engines": {
     "node": ">=20"
