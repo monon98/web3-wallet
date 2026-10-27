@@ -20,8 +20,9 @@
     "dev:extension": "pnpm --filter web3-wallet dev",
     "dev:web": "pnpm --filter @plugin/web dev",
     "dev:server": "pnpm --filter @plugin/server dev",
-    "typecheck": "pnpm build:shared && pnpm --filter @plugin/ui typecheck && pnpm --filter web3-wallet typecheck && pnpm --filter @plugin/web typecheck && pnpm --filter @plugin/server typecheck",
-    "lint": "pnpm --filter @plugin/shared lint && pnpm --filter @plugin/ui lint && pnpm --filter web3-wallet lint && pnpm --filter @plugin/web lint && pnpm --filter @plugin/server lint",
+    "typecheck": "pnpm build:shared && pnpm --filter @plugin/ui typecheck && pnpm --filter web3-wallet typecheck && pnpm --filter @plugin/web typecheck && pnpm --filter @plugin/server typecheck && pnpm --filter @plugin/e2e typecheck",
+    "lint": "pnpm --filter @plugin/shared lint && pnpm --filter @plugin/ui lint && pnpm --filter web3-wallet lint && pnpm --filter @plugin/web lint && pnpm --filter @plugin/server lint && pnpm --filter @plugin/e2e lint",
+    "test:e2e": "pnpm --filter @plugin/e2e test",
     "format": "prettier --write \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{js,cjs,mjs,jsx,ts,tsx,css,html,json,md,yml,yaml}\""
   },

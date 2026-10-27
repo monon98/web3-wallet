@@ -12,3 +12,8 @@ packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
 packages/contracts/lib/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

@@ -60,12 +60,12 @@
 
 ## 5. Monorepo 与命令（摘要）
 
-| 模式         | 说明                                                                                                     |
-| ------------ | -------------------------------------------------------------------------------------------------------- |
-| `apps/*`     | **应用**：扩展（`apps/extension`，包名 `web3-wallet`）、Web（`@plugin/web`）、服务端（`@plugin/server`） |
-| `packages/*` | **包**：`@plugin/shared`、`@plugin/ui`（共享 React UI）、`packages/contracts` 等                         |
+| 模式         | 说明                                                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `apps/*`     | **应用**：扩展（`apps/extension`，包名 `web3-wallet`）、Web（`@plugin/web`）、服务端（`@plugin/server`）              |
+| `packages/*` | **包**：`@plugin/shared`、`@plugin/ui`（共享 React UI）、`@plugin/e2e`（Web Playwright E2E）、`packages/contracts` 等 |
 
-- **推荐在仓库根**：`pnpm install`、`pnpm dev:extension` / `pnpm dev:web` / `pnpm dev:server`、`pnpm build`、`pnpm typecheck`、`pnpm lint`（见根 [README.md](../README.md)）。
+- **推荐在仓库根**：`pnpm install`、`pnpm dev:extension` / `pnpm dev:web` / `pnpm dev:server`、`pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm test:e2e`（见根 [README.md](../README.md)）。
 - **CI**：根目录 [.github/workflows/ci.yml](../.github/workflows/ci.yml)；扩展上架：[extension-store-submit.yml](../.github/workflows/extension-store-submit.yml)。
 
 ### OpenCode 规则

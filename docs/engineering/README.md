@@ -20,4 +20,5 @@
 | 服务端                    | `apps/server`        | [server.md](./server.md)                                                                       |
 | 共享类型与契约            | `packages/shared`    | [shared.md](./shared.md)                                                                       |
 | 共享 UI（React + UnoCSS） | `packages/ui`        | [ui.md](./ui.md)                                                                               |
+| Web E2E（Playwright）     | `packages/e2e`       | 见 [web.md](./web.md)「E2E（P4-1 Web 阶段）」；根命令 `pnpm test:e2e`                          |
 | 智能合约                  | `packages/contracts` | [contracts.md](./contracts.md)                                                                 |

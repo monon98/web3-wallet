@@ -12,7 +12,7 @@
 
 `P0（已完成）→ P1（已完成）→ P2 → P3 → P4`
 
-P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2-2 已完成会话级解锁 / 自动锁定；P2-3 已完成自定义 RPC 链；P2-6 已完成已连接站点搜索 / 分组 / 导出；P4-3 已完成安装 / 升级安全引导与商店物料，实际商店提交待发布账号；P4-4 已完成 Prometheus 指标与上游可用性 / 限流观测，多实例共享限流 / 缓存 / 会话仍待 Redis / DB；P2 / P3 其余项仍依赖产品范围与合约主线决策。
+P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭环；P1 已把余额查询从联调能力升级为统一 API + 按链独立页面；P4-2 已完成首轮安全自检（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计清零）；P4-5 已完成 HttpOnly Cookie + CSRF + 文件持久化；P2-2 已完成会话级解锁 / 自动锁定；P2-3 已完成自定义 RPC 链；P2-6 已完成已连接站点搜索 / 分组 / 导出；P4-3 已完成安装 / 升级安全引导与商店物料，实际商店提交待发布账号；P4-4 已完成 Prometheus 指标与上游可用性 / 限流观测，多实例共享限流 / 缓存 / 会话仍待 Redis / DB；P4-1 已完成 Web 关键路径 E2E（Playwright + 真实 Fastify + 假上游），扩展 E2E 待补；P2 / P3 其余项仍依赖产品范围与合约主线决策。
 
 ---
 
@@ -81,19 +81,21 @@ P0 已打通「钱包登录 → 签名 → 服务端广播」的最小业务闭�
 
 ## P4：质量、安全与发布
 
-| ID   | 事项                                              | 状态 | 验收口径                                                                                           |
-| ---- | ------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------- |
-| P4-1 | Web / 扩展 E2E                                    | [ ]  | 覆盖登录、签名、广播、余额查询关键路径；CI 可运行                                                  |
-| P4-2 | 安全自检清单                                      | [x]  | 密钥边界、日志脱敏、CORS、CSRF、会话 / 限流、依赖审计逐项通过；清单见 [security.md](./security.md) |
-| P4-3 | 商店物料与首次运行引导                            | [x]  | 商店页、隐私说明、备份与安全提示、安装 / 升级引导（仓库侧完成；实际提交待发布账号）                |
+| ID   | 事项                                              | 状态 | 验收口径                                                                                            |
+| ---- | ------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------- |
+| P4-1 | Web / 扩展 E2E                                    | [~]  | 覆盖登录、签名、广播、余额查询关键路径；CI 可运行（Web 阶段已完成，扩展阶段待补）                   |
+| P4-2 | 安全自检清单                                      | [x]  | 密钥边界、日志脱敏、CORS、CSRF、会话 / 限流、依赖审计逐项通过；清单见 [security.md](./security.md)  |
+| P4-3 | 商店物料与首次运行引导                            | [x]  | 商店页、隐私说明、备份与安全提示、安装 / 升级引导（仓库侧完成；实际提交待发布账号）                 |
 | P4-4 | 监控与运维                                        | [x]  | 错误率、上游限流、RPC / Etherscan / TronGrid / Esplora 可用性可观测（进程内指标；多实例共享待后续） |
-| P4-5 | 会话安全生产化（HttpOnly Cookie / CSRF / 持久化） | [x]  | 不依赖 `sessionStorage`；跨站部署安全策略明确                                                      |
+| P4-5 | 会话安全生产化（HttpOnly Cookie / CSRF / 持久化） | [x]  | 不依赖 `sessionStorage`；跨站部署安全策略明确                                                       |
 
 > **P4-5 执行记录（2026-10-22）**：浏览器 `verify` 写 `wallet_session` HttpOnly Cookie（默认 `SameSite=Lax`、生产 `Secure`）；`/auth/me` 返回 CSRF token，`/tx/broadcast` 与 `/auth/logout` 校验 `x-csrf-token`；无 Origin 的 API 客户端仍走 Bearer。会话支持 `SERVER_SESSION_STORE=file` 原子落盘（默认 `logs/sessions.json`），生产缺 `SESSION_SECRET` 启动失败。CORS 改为允许凭据并放行 `x-csrf-token`。Web `/account` 与 `/balances` 已移除 `sessionStorage`。验证：server 17 项测试、`pnpm typecheck` / `lint` / `build`。跨站部署需同时设置 `SERVER_COOKIE_SAMESITE=none`、`SERVER_COOKIE_SECURE=1` 与 HTTPS；多实例共享（会话 / 限流 / 缓存）仍待 Redis / DB（后续）。
 >
 > **P4-3 执行记录（2026-10-25）**：新增扩展页 `tabs/welcome.tsx` 与后台启动辅助 `utils/extension/onboarding.ts`。`chrome.runtime.onInstalled` 在**首次安装或版本变化**时打开「安全与使用指南」：安装前台打开、升级后台打开；同版本重载不重复弹页（状态键 `web3_wallet_onboarding_launch_v1`，仅存最近版本号）。引导页覆盖离线备份、逐笔签名核对、本地口令解密、自定义 RPC 信任边界、隐私说明与 manifest 权限用途；侧栏概览新增常驻入口。商店侧新增 [extension-store-listing.md](../product/extension-store-listing.md)（商品文案、截图脚本、隐私实践答复、发布检查清单）与 [extension-privacy-policy.md](../product/extension-privacy-policy.md)（本地数据、RPC / DApp 通信、保留与删除）；`package.json` 更新商店名称与简短描述。验证：扩展 `typecheck` / `lint` / `plasmo build`。**实际商店提交仍需**公开隐私政策 URL、支持链接、商店账号与 4–5 张无敏感数据的截图；当前 `host_permissions` 含 `https://*/*` 以支持自定义 RPC，后续可评估 optional host permissions。
 >
 > **P4-4 执行记录（2026-10-25）**：新增 `GET /metrics`（Prometheus text format），仅在配置 `SERVER_METRICS_TOKEN` 时启用，要求 `Authorization: Bearer <token>`（常量时间比较）；未配置返回 404。指标覆盖 HTTP 请求 / 4xx / 5xx / 耗时、本地 auth / 余额限流拒绝，以及 RPC / Etherscan / TronGrid / Esplora 的成功 / 失败 / 上游限流 / 最近成败时间戳 / Etherscan 冷却剩余时间；标签只含路由模板、方法、状态码与上游名，不含地址、URL、API Key 或请求体。实现见 `src/observability/metrics.ts`、`prometheusText.ts`、`src/routes/metrics.ts`；HTTP 采集在 `app.ts` 的 `onResponse`，上游封装覆盖 `rpcForward` / `etherscanV2` / `tronGrid` / `esplora` / `balanceReaderQuery`。验证：server `typecheck` / `lint` / `test`（23 项）。**边界**：指标为进程内存、单实例；多实例共享限流 / 缓存 / 会话仍需 Redis / DB，告警规则与仪表盘由部署侧配置。
+>
+> **P4-1 执行记录（2026-10-28，Web 阶段）**：新增 `packages/e2e`（`@plugin/e2e`），Playwright 启动三个本地进程——Next dev（`127.0.0.1:3100`）、真实 Fastify（`127.0.0.1:8788`）与假上游（`127.0.0.1:8799`，EVM JSON-RPC / Etherscan / TronGrid / Esplora）。`support/mockWallet.ts` 注入 EIP-6963 / EIP-1193 mock provider，页面只转发请求，签名在 Node 侧用公开 Hardhat 测试账户完成。用例覆盖 `/account` 连接 → challenge → `personal_sign` → HttpOnly Cookie 会话 → `eth_signTransaction` → 服务端广播 → 刷新恢复会话，以及 EVM 原生 + ERC-20、Tron TRX + TRC-20、BTC 已确认余额。余额用例先等待客户端「服务状态」探测完成再输入，规避 hydration 前填写受控 textarea 的竞态。根命令 `pnpm test:e2e`；CI 新增独立 `e2e` job（安装 Chromium 后执行）。验证：`@plugin/e2e` `typecheck` / `lint`、4 项 E2E 连续两次通过。**扩展 E2E 尚未实现**（需加载构建产物、钱包初始化与审批页交互），故 P4-1 保持进行中。
 
 ---
 

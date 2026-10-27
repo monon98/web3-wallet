@@ -72,6 +72,9 @@
 - **0.62** · 2026-10-28
   扩展工具栏打开方式可配置：侧栏 / 弹窗「DApp 全局设置 → 工具栏打开方式」支持在 **弹窗模式**（默认，`action.setPopup('popup.html')`）与 **侧边栏模式**（清空动态 action popup + `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`）之间切换。设置存于 `chrome.storage.local['web3_wallet_interface_mode_v1']`，由 [interfaceMode.ts](../../apps/extension/src/extension/utils/walletUi/interfaceMode.ts) 读写并应用；Service Worker 启动 / 安装 / 升级及存储变更时重新应用，网页右键菜单「打开侧边栏」始终可用。同步 [extension.md](./extension.md)、[welcome.tsx](../../apps/extension/src/tabs/welcome.tsx)、[prd-extension.md](../product/prd-extension.md)、[PRODUCT-OVERVIEW.md](../product/PRODUCT-OVERVIEW.md)、[extension-privacy-policy.md](../product/extension-privacy-policy.md) 与 [extension-store-listing.md](../product/extension-store-listing.md)。§4.1、§10 同步。
 
+- **0.63** · 2026-10-28
+  P4-1 Web E2E 阶段：新增 `packages/e2e`（`@plugin/e2e`），Playwright 在 `127.0.0.1:3100` 启动 Next dev、`8788` 启动真实 Fastify、`8799` 启动假上游（EVM JSON-RPC / Etherscan / TronGrid / Esplora）。EIP-6963 mock provider 只在页面转发请求，签名由 Node 侧 viem + 公开 Hardhat 测试账户完成；覆盖 `/account` 登录 / `personal_sign` / `eth_signTransaction` / 广播 / Cookie 会话刷新，以及 EVM / Tron / BTC 余额查询。根命令 `pnpm test:e2e`，CI 新增独立 `e2e` job（Chromium + `--with-deps`）。§9、§10 与 [web.md](./web.md)、[BACKLOG.md](./BACKLOG.md)、[README.md](../../README.md)、[docs/README.md](../README.md) 同步；扩展 E2E 与服务端多实例共享仍待补。
+
 - **0.42** · 2026-04-23  
   扩展：DApp **bridge** 按功能分子目录（`siteConnect` / `personalSign` / `typedData` / `transaction`），入口仍 **`handleBridgeMessage.ts`** + **`constants.ts`**；桥接类型迁至 **`extension/types/bridge/`**（`~/types/bridge`）；[bridge/README.md](../../apps/extension/src/extension/utils/bridge/README.md)、[bridge/AGENTS.md](../../apps/extension/src/extension/utils/bridge/AGENTS.md)、[apps/extension/AGENTS.md](../../apps/extension/AGENTS.md) 同步
 - **0.41** · 2026-04-23  
@@ -557,7 +560,7 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### 阶段 5：质量与发布（持续）
 
-- E2E、商店实际提交与运维监控；安全自检首轮已完成（[security.md](./security.md)），Cookie / CSRF / 文件持久化已由 P4-5 落地，安装 / 升级引导与商店物料已由 P4-3 落地（实际提交待发布账号），Prometheus 指标已由 P4-4 落地；Web CSP 与多实例共享限流 / 缓存 / 会话仍待补
+- E2E（Web 关键路径已完成 P4-1 Web 阶段，扩展阶段待补）、商店实际提交与运维监控；安全自检首轮已完成（[security.md](./security.md)），Cookie / CSRF / 文件持久化已由 P4-5 落地，安装 / 升级引导与商店物料已由 P4-3 落地（实际提交待发布账号），Prometheus 指标已由 P4-4 落地；Web CSP 与多实例共享限流 / 缓存 / 会话仍待补
 
 **依赖顺序**：阶段 0 → 阶段 1 →（阶段 4 最小合约 + 阶段 3 读链可并行）→ 阶段 2 全链路 → 迭代扩展。
 
@@ -608,6 +611,8 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 **Auth 与 tx 广播已具备 MVP，统一余额查询已完成 P1 产品化，P4-2 安全自检、P4-5 会话安全生产化、P4-3 安装 / 升级引导及商店物料、P4-4 运维指标已完成**（CORS 白名单、auth 限流、日志脱敏、运行时依赖审计 0 漏洞、HttpOnly Cookie + CSRF + 文件持久化、安全引导与上架文案、Prometheus 指标）；业务 API、多实例共享限流 / 缓存 / 会话、实际商店提交与 Web CSP 仍待迭代（见 [BACKLOG.md](./BACKLOG.md) P4-1 / P4-3 发布项 / 后续与 [security.md](./security.md)）。
 
+**Web E2E（P4-1 Web 阶段）**：[`packages/e2e`](../../packages/e2e/)（`@plugin/e2e`）使用 Playwright 启动 Next dev（`127.0.0.1:3100`）、真实 Fastify（`8788`）与本地假上游（`8799`，EVM JSON-RPC / Etherscan / TronGrid / Esplora），覆盖 `/account` 登录 / 签名 / 广播与 `/balances/{evm,tron,btc}` 余额查询；mock 钱包只转发 EIP-1193 请求，签名在 Node 侧用公开测试账户完成，不访问真实链或第三方 API。根命令 `pnpm test:e2e`，CI 独立 `e2e` job；扩展 E2E 待补。
+
 ### 合约
 
 [packages/contracts](../../packages/contracts/) Foundry：`eth/`（`Token`、`TokenPermit`）与 `evm/`（`BalanceBatchReader`、`BatchSender`、`BatchCollector`）、`common/Err`；见 [contracts.md](./contracts.md)。
@@ -618,4 +623,4 @@ CI 最低集：`shared` / `web` / `server` typecheck + lint；`server` 集成测
 
 ### 根目录
 
-[package.json](../../package.json) monorepo 根（pnpm workspace）
+[package.json](../../package.json) monorepo 根（pnpm workspace）；[`packages/e2e`](../../packages/e2e/)（`@plugin/e2e`）为 Web 关键路径 Playwright E2E。

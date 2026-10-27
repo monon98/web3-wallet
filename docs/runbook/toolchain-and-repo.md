@@ -31,3 +31,16 @@
   2. 重启 `pnpm dev:web`（或触发 Turbopack 重新生成 CSS）并刷新页面。
   - 扩展侧一直使用 `apps/extension/uno.config.ts` 的 `content.filesystem`，不受影响。
 - **验证**：DevTools 中 `.p-4` / `.block` 等规则存在；`PanelSection` computed padding 为 `16px`，输入框有边框、`UiButton` 有配色。
+
+## Playwright E2E：Next.js hydration 竞态导致余额表单输入丢失
+
+- **现象**：`pnpm test:e2e` 的余额用例偶发失败；失败快照中 textarea 同时包含默认地址与测试地址，提交后提示「地址格式无效」，或点击「查询余额」后没有结果。单跑某条用例可能通过，整套运行更容易复现。
+- **根因**：Playwright 在 Next dev 页面 **hydration 完成前**执行 `fill` / `click`；受控 textarea 的 React state 尚未接管，输入被 SSR 默认值覆盖或拼接。
+- **处理**：输入前先等待一个**只在客户端渲染**的信号。余额页等待 TanStack Query 的「服务状态」出现（如 `每链最多 20 个地址`），再 `fill` 并断言 `toHaveValue`，最后点击查询；复用 [balances.spec.ts](../../packages/e2e/tests/balances.spec.ts) 的 `queryBalance` 辅助函数。
+- **验证**：`pnpm test:e2e` 连续两次 4 项通过。
+
+## E2E 假 Etherscan 的 `TokenDivisor` 语义
+
+- **现象**：ERC-20 用例期望展示 `2.5`，页面实际显示 `416666.666666`。
+- **根因**：本仓契约中的 `TokenDivisor` 是**除数原值**（Web 使用 `tokenAmountDisplay(quantity, divisor)`），假上游错填为小数位数 `6`；`2500000 / 6` 得到错误展示。
+- **处理**：固定假数据使用 `TokenQuantity: '2500000'`、`TokenDivisor: '1000000'`；新增 E2E 假数据时保持同一语义。

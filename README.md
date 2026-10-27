@@ -28,7 +28,10 @@ pnpm lint
 pnpm dev:extension
 pnpm dev:web
 pnpm dev:server
+pnpm test:e2e
 ```
+
+Web E2E（Playwright）首次运行需安装 Chromium：`pnpm --filter @plugin/e2e exec playwright install chromium`。测试自动启动 Next dev、真实 Fastify 与本地假上游，不访问真实链或第三方 API；当前覆盖 Web 关键路径，扩展 E2E 待补。
 
 合约（在已安装 Foundry 的前提下）：
 

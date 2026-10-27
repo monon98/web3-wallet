@@ -1,0 +1,25 @@
+{
+  "name": "@plugin/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web 关键路径 Playwright E2E（真实 Fastify + 本地假上游）",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.10.2",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.5",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.2",
+    "viem": "2.47.6"
+  }
+}
