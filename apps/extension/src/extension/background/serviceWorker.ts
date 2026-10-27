@@ -33,13 +33,18 @@ import {
 import { maybeOpenOnboardingTab } from '~lib/extension/onboarding';
 import { extLogDebug, extLogInfo, extLogWarn } from '~lib/extensionLog';
 import { getUnlockStatus, getUnlockSummary, lockAllUnlockedAccounts } from '~lib/vault/unlockSession';
-import { ensureWalletGlobalSettingsInitialized } from '~lib/walletUi/globalSettings';
+import {
+  applyWalletInterfaceMode,
+  ensureWalletGlobalSettingsInitialized,
+  loadWalletInterfaceMode,
+  WALLET_INTERFACE_MODE_STORAGE_KEY
+} from '~lib/walletUi/globalSettings';
 import { revokeSiteAuthSessionsForTab } from '~lib/walletUi/walletUiState';
 
 /**
  * Chrome MV3 **Service Worker** 实现（由根目录 `src/background.ts` 侧载，以满足 Plasmo 入口路径约定）。
  *
- * **职责**：工具栏弹窗、侧栏与右键菜单；安装/升级时打开安全与使用指南；启动时初始化钱包 UI 状态与站点授权策略；接收两类 `runtime` 消息——
+ * **职责**：按用户设置应用工具栏的弹窗 / 侧栏打开方式、右键菜单；安装/升级时打开安全与使用指南；启动时初始化钱包 UI 状态与站点授权策略；接收两类 `runtime` 消息——
  * （1）连接/签名弹窗的批准或拒绝；（2）隔离内容脚本转发的 {@link BridgeRequest}（网页 DApp → `contents/allUrls` → 本处 → `handleBridgeRequest`）。
  *
  * **生命周期**：标签页关闭或**整页刷新**（非 iframe）时按 tab 撤销站点会话，避免残留授权。
@@ -55,20 +60,16 @@ import { revokeSiteAuthSessionsForTab } from '~lib/walletUi/walletUiState';
 const MENU_ID = 'openSidePanel' as const;
 
 /**
- * 确保工具栏图标回到 `action.default_popup`（弹窗），而不是打开侧栏。
+ * 按用户设置应用工具栏打开方式（弹窗 / 侧边栏）。
  *
- * Chrome 会持久化 `openPanelOnActionClick`；旧版本曾设为 `true`，因此 Service
- * Worker 启动时显式设为 `false` 来重置已有安装 / 手动重载。侧栏继续通过右键菜单
- * 「打开侧边栏」进入。
+ * Chrome 会持久化 `openPanelOnActionClick` 与动态 action popup，因此 Service Worker
+ * 每次启动都要重新读取 `web3_wallet_interface_mode_v1`：`popup` 恢复 `popup.html`
+ * 且关闭侧栏点击，`sidePanel` 清空 action popup 且开启侧栏点击。
+ * 右键菜单「打开侧边栏」始终可用。
  */
-function ensureActionPopupEnabled(): void {
-  const sidePanel = chrome.sidePanel;
-  if (!sidePanel?.setPanelBehavior) {
-    return;
-  }
-  sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {
-    void chrome.runtime.lastError;
-  });
+async function applyStoredWalletInterfaceMode(): Promise<void> {
+  const mode = await loadWalletInterfaceMode();
+  await applyWalletInterfaceMode(mode);
 }
 
 function ensureContextMenu(): void {
@@ -84,8 +85,16 @@ function ensureContextMenu(): void {
   });
 }
 
-// Service Worker 每次启动都重置一次，确保从旧版本升级 / 手动重载后立即恢复弹窗。
-ensureActionPopupEnabled();
+// Service Worker 每次启动都按当前用户设置重新应用，避免 Chrome 持久化的旧行为覆盖设置。
+void applyStoredWalletInterfaceMode();
+
+// 设置页保存后即使没有直接调用 sidePanel API，也由后台监听兜底应用。
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !(WALLET_INTERFACE_MODE_STORAGE_KEY in changes)) {
+    return;
+  }
+  void applyStoredWalletInterfaceMode();
+});
 
 /** 主框架整页刷新时撤销该 tab 的站点会话（防旧页面授权被新文档继承）。 */
 chrome.webNavigation.onCommitted.addListener((details) => {
@@ -107,7 +116,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.runtime.onInstalled.addListener((details) => {
   extLogInfo('sw_lifecycle', { event: 'installed', reason: details.reason });
-  void ensureWalletGlobalSettingsInitialized();
+  void ensureWalletGlobalSettingsInitialized()
+    .then(() => applyStoredWalletInterfaceMode())
+    .catch(() => {
+      extLogWarn('wallet_interface_mode', { action: 'initialize', result: 'failed' });
+    });
   ensureContextMenu();
 
   // 首次安装 / 版本变化时打开安全与使用指南；同版本重载不重复弹页。
@@ -124,7 +137,11 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   extLogInfo('sw_lifecycle', { event: 'startup' });
-  void ensureWalletGlobalSettingsInitialized();
+  void ensureWalletGlobalSettingsInitialized()
+    .then(() => applyStoredWalletInterfaceMode())
+    .catch(() => {
+      extLogWarn('wallet_interface_mode', { action: 'initialize', result: 'failed' });
+    });
   ensureContextMenu();
 });
 

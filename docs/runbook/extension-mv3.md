@@ -81,6 +81,13 @@
 - **升级注意**：不要把 `@plugin/shared>zod` 直接升到 `3.25+`。升级前先检查构建产物中是否出现 `"./v3/external.js":!1`（external 标记），或在浏览器实测 popup / sidepanel；必要时改用 Parcel 兼容的 CJS 入口，或等待 Plasmo/Parcel 修复。
 - **验证（2026-10）**：用本地 Chromium 分别加载 `build/chrome-mv3-prod` 与 `build/chrome-mv3-dev`，直接打开 `chrome-extension://<id>/popup.html`、`sidepanel.html`、`tabs/welcome.html`、`tabs/evmAccounts.html` 与 `tabs/generateAccounts.html`，页面正文均正常渲染，控制台无异常（dev 仅保留 Plasmo HMR 连接日志）。
 
+## 工具栏打开方式：侧边栏模式仍打开弹窗 / 持久化验证
+
+- **现象（2026-10）**：已调用 `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`，但点击工具栏图标仍打开 `action.default_popup`；只有右键菜单「打开侧边栏」可用。
+- **根因**：Chrome 会优先使用 action 当前设置的 popup。只要 manifest 的 `default_popup` 或动态 `action.setPopup` 仍有值，`openPanelOnActionClick: true` 就不会接管工具栏点击。
+- **处理（已落地）**：见 [`interfaceMode.ts`](../../apps/extension/src/extension/utils/walletUi/interfaceMode.ts)。**侧边栏模式**先 `chrome.action.setPopup({ popup: '' })` 清空动态 popup，再开启 `openPanelOnActionClick`；**弹窗模式**恢复 `action.setPopup({ popup: 'popup.html' })` 并关闭 `openPanelOnActionClick`。Service Worker 启动 / 安装 / 升级及存储变更时重新应用，避免 Chrome 持久化旧值。
+- **验证**：在扩展页读取 `chrome.action.getPopup({})` 与 `chrome.sidePanel.getPanelBehavior()`，侧边栏模式应为空 popup + `true`，弹窗模式应为指向扩展内 `popup.html` 的 URL + `false`。验证浏览器重启后的持久化时，**不要调用 `chrome.runtime.reload()`**（本仓库测试环境中会导致未打包扩展被禁用）；应完全退出 Chromium，再用相同 `--user-data-dir` 与 `--load-extension` 参数重启，然后检查上述两个 API 与 `chrome.storage.local` 中的设置值。
+
 ## Plasmo / Parcel：已删除的 `tabs/*.ts` 仍报 `ENOENT … stat` / `open`
 
 - **现象（2026-04）**：`plasmo dev` / `plasmo build` 报错，例如：

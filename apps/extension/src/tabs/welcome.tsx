@@ -33,9 +33,9 @@ const SECURITY_RULES = [
 ] as const;
 
 const PERMISSION_ROWS = [
-  ['sidePanel', '在浏览器侧栏显示钱包与设置页。'],
+  ['sidePanel', '在浏览器侧栏显示钱包与设置页，并支持切换工具栏打开方式。'],
   ['scripting', '在本地开发域名白名单中注入 EIP-1193 provider 与隔离桥内容脚本。'],
-  ['storage', '保存加密账户包、当前网络、解锁设置与站点授权；不保存明文口令 / 私钥。'],
+  ['storage', '保存加密账户包、当前网络、解锁 / 界面设置与站点授权；不保存明文口令 / 私钥。'],
   ['tabs', '打开账户与审批页，并在标签关闭时撤销该标签的站点会话。'],
   ['webNavigation', '检测主框架刷新并撤销旧页面的站点授权。'],
   ['contextMenus', '在右键菜单中打开钱包侧边栏。'],
@@ -150,7 +150,8 @@ export default function WelcomePage() {
             <li className='rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-1)] p-3'>
               <span className='font-semibold text-[var(--ui-fg)]'>3. 连接 DApp</span>
               <p className='mt-1 text-xs leading-relaxed text-[var(--ui-muted-fg)]'>
-                在任意网页点击浏览器工具栏中的钱包图标打开弹窗；需要更大面板时，可在网页右键菜单选择「打开侧边栏」。连接请求需选择账户并确认，签名与交易仍需逐笔批准。
+                在任意网页点击浏览器工具栏中的钱包图标打开钱包面板；默认打开弹窗，也可在「DApp 全局设置 →
+                工具栏打开方式」切换为侧边栏模式。网页右键菜单始终可以选择「打开侧边栏」。连接请求需选择账户并确认，签名与交易仍需逐笔批准。
               </p>
             </li>
           </ol>
@@ -169,7 +170,7 @@ export default function WelcomePage() {
           <div className='space-y-2 text-xs leading-relaxed text-[var(--ui-muted-fg)]'>
             <p>
               <span className='font-semibold text-[var(--ui-fg)]'>本地保存：</span>
-              加密账户包、当前网络与解锁设置、已连接站点授权、最近一次引导版本。明文助记词 /
+              加密账户包、当前网络与解锁设置、工具栏打开方式、已连接站点授权、最近一次引导版本。明文助记词 /
               私钥与口令不会写入持久存储。
             </p>
             <p>
@@ -204,7 +205,9 @@ export default function WelcomePage() {
         </PanelSection>
 
         <footer className='pb-4 text-center text-[11px] leading-relaxed text-[var(--ui-muted-fg)]'>
-          <p>点击浏览器工具栏中的钱包图标打开弹窗；网页右键菜单可打开完整侧边栏。</p>
+          <p>
+            工具栏图标默认打开弹窗；可在「DApp 全局设置 → 工具栏打开方式」切换为侧边栏模式，网页右键菜单也可打开侧边栏。
+          </p>
           <p className='mt-1'>安全与使用指南 · v{context.version}</p>
         </footer>
       </main>

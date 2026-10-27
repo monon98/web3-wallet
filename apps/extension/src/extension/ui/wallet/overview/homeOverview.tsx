@@ -60,7 +60,7 @@ export function WalletHomeOverview({
         <OverviewNavRow
           title='DApp 全局设置'
           summary={dappGlobalSummary}
-          hint='默认账户、网络与自定义 RPC、交易提交方式、已连接网站、站点授权策略'
+          hint='默认账户、工具栏打开方式、网络与自定义 RPC、交易提交方式、已连接网站、站点授权策略'
           onClick={() => onNavigate('settings')}
         />
         <OverviewNavRow

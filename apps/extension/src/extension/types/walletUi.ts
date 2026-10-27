@@ -36,6 +36,9 @@ export type ConnectedSitesGroup = {
 /** DApp `eth_sendTransaction` 批准后的提交方式（全局，存于钱包 UI 状态） */
 export type EvmTxSubmitMode = 'signOnly' | 'signAndBroadcast';
 
+/** 浏览器工具栏图标的打开方式：弹窗（默认）或侧边栏 */
+export type WalletInterfaceMode = 'popup' | 'sidePanel';
+
 /** 链 ID + 站点会话 + EVM 交易提交偏好 */
 export type WalletUiStateV1 = {
   chainIdHex: string;
