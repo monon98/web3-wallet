@@ -44,3 +44,10 @@
 - **现象**：ERC-20 用例期望展示 `2.5`，页面实际显示 `416666.666666`。
 - **根因**：本仓契约中的 `TokenDivisor` 是**除数原值**（Web 使用 `tokenAmountDisplay(quantity, divisor)`），假上游错填为小数位数 `6`；`2500000 / 6` 得到错误展示。
 - **处理**：固定假数据使用 `TokenQuantity: '2500000'`、`TokenDivisor: '1000000'`；新增 E2E 假数据时保持同一语义。
+
+## GitHub Actions：pnpm 版本重复导致 ERR_PNPM_BAD_PM_VERSION
+
+- **现象**：CI 在 `pnpm/action-setup@v4` 步骤失败：`Multiple versions of pnpm specified`，同时列出 action 的 `version: 9` 与 `package.json` 的 `packageManager: pnpm@9.15.4`。
+- **根因**：仓库用 `packageManager` 固定 pnpm 版本，而 workflow 又通过 `with.version` 指定了另一个版本；action-setup v4 将两者视为冲突。
+- **处理**：删除 `pnpm/action-setup` 的 `with.version`，只保留 `uses: pnpm/action-setup@v4`，由 `packageManager` 决定版本；升级 pnpm 时只改根 `package.json` 的 `packageManager` 并更新 `pnpm-lock.yaml`。`ci.yml` 与 `extension-store-submit.yml` 均需保持一致。
+- **验证**：GitHub Actions 的 `js` / `e2e` job 能通过 pnpm 安装步骤。
